@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { View, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import { Link, router } from 'expo-router';
+import { View, KeyboardAvoidingView, Platform, ScrollView, Alert, Image } from 'react-native';
+import { Link } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MapPin, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { colorScheme } from 'nativewind';
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -48,11 +49,24 @@ export default function LoginScreen() {
         <View className="flex-1 justify-center px-6 py-12">
           {/* Logo & Title */}
           <View className="mb-12 items-center">
-            <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-              <MapPin size={40} className="text-primary" />
-            </View>
-            <Text className="text-3xl font-bold text-foreground">Mau Ngekos</Text>
-            <Text className="mt-2 text-muted-foreground">Temukan kos impianmu</Text>
+            {/* jika mode gelap maka tampilkan icon hitam */}
+            {colorScheme === 'dark' ? (
+              <Image
+                source={require('@/assets/images/icon-no-bg1.png')}
+                style={{ width: 100, height: 100 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Image
+                source={require('@/assets/images/icon-no-bg2.png')}
+                style={{ width: 100, height: 100 }}
+                resizeMode="cover"
+              />
+            )}
+            <Text className="mt-2 text-center text-2xl font-extrabold">Login ke MauNgekos</Text>
+            <Text className="mt-2 text-center text-muted-foreground">
+              Masuk ke akun Anda untuk melanjutkan
+            </Text>
           </View>
 
           {/* Form */}
@@ -60,51 +74,36 @@ export default function LoginScreen() {
             {/* Email */}
             <View className="gap-2">
               <Label nativeID="email">Email</Label>
-              <View className="relative">
-                <Mail
-                  size={20}
-                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
-                />
-                <Input
-                  placeholder="Masukkan email"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  className="pl-11"
-                  aria-labelledby="email"
-                />
-              </View>
+              <Input
+                placeholder="Masukkan email"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                leftIcon={<Mail size={20} color="hsl(0, 0%, 45%)" />}
+                aria-labelledby="email"
+              />
             </View>
 
             {/* Password */}
             <View className="gap-2">
               <Label nativeID="password">Password</Label>
-              <View className="relative">
-                <Lock
-                  size={20}
-                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
-                />
-                <Input
-                  placeholder="Masukkan password"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  className="pl-11 pr-11"
-                  aria-labelledby="password"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2"
-                  onPress={() => setShowPassword(!showPassword)}>
-                  {showPassword ? (
-                    <EyeOff size={20} className="text-muted-foreground" />
+              <Input
+                placeholder="Masukkan password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                leftIcon={<Lock size={20} color="hsl(0, 0%, 45%)" />}
+                rightIcon={
+                  showPassword ? (
+                    <EyeOff size={20} color="hsl(0, 0%, 45%)" />
                   ) : (
-                    <Eye size={20} className="text-muted-foreground" />
-                  )}
-                </Button>
-              </View>
+                    <Eye size={20} color="hsl(0, 0%, 45%)" />
+                  )
+                }
+                onRightIconPress={() => setShowPassword(!showPassword)}
+                aria-labelledby="password"
+              />
             </View>
 
             {/* Login Button */}

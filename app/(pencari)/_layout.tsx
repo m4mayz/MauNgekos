@@ -1,9 +1,11 @@
 import { Tabs } from 'expo-router';
 import { MapPin, User, Heart } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function PencariLayout() {
   const { colorScheme } = useColorScheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -13,6 +15,9 @@ export default function PencariLayout() {
         tabBarStyle: {
           backgroundColor: colorScheme === 'dark' ? '#1F2937' : '#FFFFFF',
           borderTopColor: colorScheme === 'dark' ? '#374151' : '#E5E7EB',
+          paddingBottom: Math.max(insets.bottom, 8),
+          paddingTop: 8,
+          height: 70 + insets.bottom,
         },
         headerStyle: {
           backgroundColor: colorScheme === 'dark' ? '#1F2937' : '#FFFFFF',

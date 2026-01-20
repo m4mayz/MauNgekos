@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Dimensions, Pressable } from 'react-native';
-import { WebView } from 'react-native-webview';
+import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,9 +10,17 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Kos, KosFilter, KosType } from '@/types';
 import { getApprovedKos } from '@/services/kosService';
-import { Search, SlidersHorizontal, X, Navigation, LogIn, User } from 'lucide-react-native';
+import { Search, SlidersHorizontal, X, Navigation, LogIn, User, MapPin } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
+
+// Default location (Jakarta)
+const DEFAULT_REGION: Region = {
+  latitude: -6.2088,
+  longitude: 106.8456,
+  latitudeDelta: 0.0922,
+  longitudeDelta: 0.0421,
+};
 
 const KOS_TYPE_COLORS: Record<KosType, string> = {
   putra: '#3B82F6',
@@ -22,7 +30,8 @@ const KOS_TYPE_COLORS: Record<KosType, string> = {
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const webViewRef = useRef<WebView>(null);
+  const mapRef = useRef<MapView>(null);
+  const [region, setRegion] = useState<Region>(DEFAULT_REGION);
   const [kosList, setKosList] = useState<Kos[]>([]);
   const [filteredKos, setFilteredKos] = useState<Kos[]>([]);
   const [selectedKos, setSelectedKos] = useState<Kos | null>(null);
@@ -30,10 +39,6 @@ export default function HomeScreen() {
   const [showFilter, setShowFilter] = useState(false);
   const [filters, setFilters] = useState<KosFilter>({});
   const [loading, setLoading] = useState(true);
-  const [userLocation, setUserLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
 
   // Get user location
   useEffect(() => {
@@ -43,23 +48,20 @@ export default function HomeScreen() {
         if (status === 'granted') {
           try {
             const location = await Location.getCurrentPositionAsync({});
-            setUserLocation({
-              lat: location.coords.latitude,
-              lng: location.coords.longitude,
-            });
+            const newRegion: Region = {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            };
+            setRegion(newRegion);
+            mapRef.current?.animateToRegion(newRegion, 1000);
           } catch (error) {
-            // Location request failed, use default
             console.log('Location request failed, using default');
-            setUserLocation({ lat: -6.2088, lng: 106.8456 });
           }
-        } else {
-          // Permission denied, use default
-          setUserLocation({ lat: -6.2088, lng: 106.8456 });
         }
       } catch (error) {
-        // Permission request failed, use default
         console.log('Permission request failed, using default');
-        setUserLocation({ lat: -6.2088, lng: 106.8456 });
       }
     })();
   }, []);
@@ -109,6 +111,28 @@ export default function HomeScreen() {
     setFilteredKos(result);
   }, [searchQuery, filters, kosList]);
 
+  const handleMarkerPress = (kos: Kos) => {
+    setSelectedKos(kos);
+  };
+
+  const goToUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        const newRegion: Region = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        };
+        mapRef.current?.animateToRegion(newRegion, 1000);
+      }
+    } catch (error) {
+      console.log('Could not get location');
+    }
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -118,193 +142,31 @@ export default function HomeScreen() {
     }).format(price);
   };
 
-  // Generate Leaflet map HTML
-  const generateMapHTML = () => {
-    const center = userLocation || { lat: -6.2088, lng: 106.8456 };
-    const markers = filteredKos
-      .map(
-        (kos) => `
-      {
-        id: "${kos.id}",
-        lat: ${kos.location.latitude},
-        lng: ${kos.location.longitude},
-        name: "${kos.name.replace(/"/g, '\\"')}",
-        address: "${kos.address.replace(/"/g, '\\"')}",
-        type: "${kos.type}",
-        priceMin: ${kos.priceMin},
-        priceMax: ${kos.priceMax},
-        availableRooms: ${kos.availableRooms},
-        color: "${KOS_TYPE_COLORS[kos.type]}"
-      }
-    `
-      )
-      .join(',');
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          html, body, #map { height: 100%; width: 100%; }
-          .custom-marker {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .custom-marker svg {
-            width: 16px;
-            height: 16px;
-            fill: white;
-          }
-          .leaflet-popup-content-wrapper {
-            border-radius: 12px;
-            padding: 0;
-          }
-          .leaflet-popup-content {
-            margin: 0;
-            min-width: 200px;
-          }
-          .popup-content {
-            padding: 12px;
-          }
-          .popup-type {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            color: white;
-            font-size: 11px;
-            text-transform: capitalize;
-            margin-bottom: 6px;
-          }
-          .popup-name {
-            font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 4px;
-            color: #333;
-          }
-          .popup-address {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 8px;
-          }
-          .popup-price {
-            font-weight: bold;
-            color: #10B981;
-            font-size: 13px;
-          }
-          .popup-rooms {
-            font-size: 11px;
-            color: #666;
-          }
-        </style>
-      </head>
-      <body>
-        <div id="map"></div>
-        <script>
-          const markers = [${markers}];
-          
-          const map = L.map('map', {
-            zoomControl: false
-          }).setView([${center.lat}, ${center.lng}], 14);
-          
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-          }).addTo(map);
-
-          L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-          markers.forEach(m => {
-            const icon = L.divIcon({
-              className: '',
-              html: '<div class="custom-marker" style="background-color: ' + m.color + '"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zM7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 2.88-2.88 7.19-5 9.88C9.92 16.21 7 11.85 7 9z"/><circle cx="12" cy="9" r="2.5"/></svg></div>',
-              iconSize: [32, 32],
-              iconAnchor: [16, 32],
-              popupAnchor: [0, -32]
-            });
-
-            const formatPrice = (price) => {
-              return new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0
-              }).format(price);
-            };
-
-            const popupContent = 
-              '<div class="popup-content">' +
-                '<span class="popup-type" style="background-color: ' + m.color + '">' + m.type + '</span>' +
-                '<div class="popup-name">' + m.name + '</div>' +
-                '<div class="popup-address">' + m.address + '</div>' +
-                '<div class="popup-price">' + formatPrice(m.priceMin) + ' - ' + formatPrice(m.priceMax) + '/bulan</div>' +
-                '<div class="popup-rooms">' + m.availableRooms + ' kamar tersedia</div>' +
-              '</div>';
-
-            L.marker([m.lat, m.lng], { icon })
-              .addTo(map)
-              .bindPopup(popupContent)
-              .on('click', () => {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'marker_click', kos: m }));
-              });
-          });
-
-          // User location marker
-          ${
-            userLocation
-              ? `
-            L.circleMarker([${userLocation.lat}, ${userLocation.lng}], {
-              radius: 8,
-              fillColor: '#4285F4',
-              color: '#fff',
-              weight: 3,
-              opacity: 1,
-              fillOpacity: 1
-            }).addTo(map);
-          `
-              : ''
-          }
-        </script>
-      </body>
-      </html>
-    `;
-  };
-
-  const handleWebViewMessage = (event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'marker_click') {
-        const kos = kosList.find((k) => k.id === data.kos.id);
-        if (kos) {
-          setSelectedKos(kos);
-        }
-      }
-    } catch (error) {
-      console.error('Error parsing WebView message:', error);
-    }
-  };
-
   return (
     <View style={styles.container}>
-      {/* Map WebView */}
-      {userLocation && (
-        <WebView
-          ref={webViewRef}
-          source={{ html: generateMapHTML() }}
-          style={styles.map}
-          onMessage={handleWebViewMessage}
-          javaScriptEnabled
-          domStorageEnabled
-          startInLoadingState
-        />
-      )}
+      {/* Map */}
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        provider={PROVIDER_GOOGLE}
+        initialRegion={region}
+        showsUserLocation
+        showsMyLocationButton={false}
+        onPress={() => setSelectedKos(null)}>
+        {filteredKos.map((kos) => (
+          <Marker
+            key={kos.id}
+            coordinate={{
+              latitude: kos.location.latitude,
+              longitude: kos.location.longitude,
+            }}
+            onPress={() => handleMarkerPress(kos)}>
+            <View style={[styles.markerContainer, { backgroundColor: KOS_TYPE_COLORS[kos.type] }]}>
+              <MapPin size={16} color="#fff" />
+            </View>
+          </Marker>
+        ))}
+      </MapView>
 
       {/* Search Bar */}
       <View className="absolute left-4 right-4 top-12">
@@ -411,10 +273,19 @@ export default function HomeScreen() {
         </Button>
       )}
 
+      {/* My Location Button */}
+      <Button
+        variant="outline"
+        size="icon"
+        className="absolute bottom-32 right-4 rounded-full bg-background shadow-lg"
+        onPress={goToUserLocation}>
+        <Navigation size={20} className="text-primary" />
+      </Button>
+
       {/* Selected Kos Preview */}
       {selectedKos && (
         <Pressable
-          className="absolute bottom-8 left-4 right-4"
+          className="absolute bottom-24 left-4 right-4"
           onPress={() => router.push(`/(pencari)/kos/${selectedKos.id}`)}>
           <View className="rounded-xl bg-background p-4 shadow-lg">
             <View className="flex-row items-start justify-between">
@@ -471,5 +342,19 @@ const styles = StyleSheet.create({
   map: {
     width,
     height,
+  },
+  markerContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });

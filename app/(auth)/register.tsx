@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MapPin, Mail, Lock, User, Phone, Eye, EyeOff, Search, Home } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type RoleOption = {
   value: Exclude<UserRole, 'admin'>;
@@ -41,6 +42,8 @@ export default function RegisterScreen() {
   const [role, setRole] = useState<Exclude<UserRole, 'admin'>>('pencari');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const insets = useSafeAreaInsets();
 
   const handleRegister = async () => {
     if (!name || !email || !password || !confirmPassword) {
@@ -82,18 +85,7 @@ export default function RegisterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-background">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-        <View className="flex-1 px-6 py-8">
-          {/* Header */}
-          <View className="mb-8 items-center">
-            <View className="mb-3 h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-              <MapPin size={32} className="text-primary" />
-            </View>
-            <Text className="text-2xl font-bold text-foreground">Daftar Akun</Text>
-            <Text className="mt-1 text-center text-muted-foreground">
-              Pilih jenis akun dan lengkapi datamu
-            </Text>
-          </View>
-
+        <View className="flex-1 px-6 py-8" style={{ paddingTop: insets.top + 20 }}>
           {/* Role Selection */}
           <View className="mb-6">
             <Label className="mb-3">Daftar Sebagai</Label>
@@ -140,16 +132,12 @@ export default function RegisterScreen() {
             <View className="gap-2">
               <Label nativeID="name">Nama Lengkap</Label>
               <View className="relative">
-                <User
-                  size={20}
-                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
-                />
                 <Input
                   placeholder="Masukkan nama lengkap"
                   value={name}
                   onChangeText={setName}
-                  className="pl-11"
                   aria-labelledby="name"
+                  leftIcon={<User size={20} color="hsl(0, 0%, 45%)" />}
                 />
               </View>
             </View>
@@ -158,18 +146,14 @@ export default function RegisterScreen() {
             <View className="gap-2">
               <Label nativeID="email">Email</Label>
               <View className="relative">
-                <Mail
-                  size={20}
-                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
-                />
                 <Input
                   placeholder="Masukkan email"
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  className="pl-11"
                   aria-labelledby="email"
+                  leftIcon={<Mail size={20} color="hsl(0, 0%, 45%)" />}
                 />
               </View>
             </View>
@@ -178,17 +162,13 @@ export default function RegisterScreen() {
             <View className="gap-2">
               <Label nativeID="phone">No. Telepon (Opsional)</Label>
               <View className="relative">
-                <Phone
-                  size={20}
-                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
-                />
                 <Input
                   placeholder="Masukkan nomor telepon"
                   value={phone}
                   onChangeText={setPhone}
                   keyboardType="phone-pad"
-                  className="pl-11"
                   aria-labelledby="phone"
+                  leftIcon={<Phone size={20} color="hsl(0, 0%, 45%)" />}
                 />
               </View>
             </View>
@@ -197,29 +177,22 @@ export default function RegisterScreen() {
             <View className="gap-2">
               <Label nativeID="password">Password</Label>
               <View className="relative">
-                <Lock
-                  size={20}
-                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
-                />
                 <Input
                   placeholder="Minimal 6 karakter"
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
-                  className="pl-11 pr-11"
                   aria-labelledby="password"
+                  leftIcon={<Lock size={20} color="hsl(0, 0%, 45%)" />}
+                  rightIcon={
+                    showPassword ? (
+                      <EyeOff size={20} color="hsl(0, 0%, 45%)" />
+                    ) : (
+                      <Eye size={20} color="hsl(0, 0%, 45%)" />
+                    )
+                  }
+                  onRightIconPress={() => setShowPassword(!showPassword)}
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2"
-                  onPress={() => setShowPassword(!showPassword)}>
-                  {showPassword ? (
-                    <EyeOff size={20} className="text-muted-foreground" />
-                  ) : (
-                    <Eye size={20} className="text-muted-foreground" />
-                  )}
-                </Button>
               </View>
             </View>
 
@@ -227,17 +200,13 @@ export default function RegisterScreen() {
             <View className="gap-2">
               <Label nativeID="confirmPassword">Konfirmasi Password</Label>
               <View className="relative">
-                <Lock
-                  size={20}
-                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
-                />
                 <Input
                   placeholder="Ulangi password"
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showPassword}
-                  className="pl-11"
                   aria-labelledby="confirmPassword"
+                  leftIcon={<Lock size={20} color="hsl(0, 0%, 45%)" />}
                 />
               </View>
             </View>
