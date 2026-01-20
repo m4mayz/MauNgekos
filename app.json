@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Mau Ngekos",
+    "slug": "MauNgekos",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "MauNgekos",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.maungekos.app",
+      "config": {
+        "googleMapsApiKey": "AIzaSyD4QAh2bTWWyH0ZP0fVpI47pGI6hKRlGFI"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Kami memerlukan lokasi Anda untuk menampilkan kos terdekat.",
+        "NSLocationAlwaysUsageDescription": "Kami memerlukan lokasi Anda untuk menampilkan kos terdekat."
+      }
+    },
+    "android": {
+      "edgeToEdgeEnabled": true,
+      "package": "com.maungekos.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      },
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Izinkan Mau Ngekos mengakses lokasi Anda untuk menemukan kos terdekat."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Izinkan Mau Ngekos mengakses foto Anda untuk upload gambar kos."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
