@@ -309,8 +309,12 @@ export default function HomeScreen() {
                 placeholder="Cari nama atau alamat kos..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                leftIcon={<Search size={20} color="#fff" />}
-                rightIcon={searchQuery ? <X size={20} color="#fff" /> : undefined}
+                leftIcon={<Search size={20} color={colorScheme === 'dark' ? '#fff' : '#000'} />}
+                rightIcon={
+                  searchQuery ? (
+                    <X size={20} color={colorScheme === 'dark' ? '#fff' : '#000'} />
+                  ) : undefined
+                }
                 onRightIconPress={() => setSearchQuery('')}
                 className="shadow-lg shadow-black"
               />
