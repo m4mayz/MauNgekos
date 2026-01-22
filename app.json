@@ -54,15 +54,16 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Izinkan Mau Ngekos mengakses lokasi Anda untuk menemukan kos terdekat."
+          "locationAlwaysAndWhenInUsePermission": "Izinkan MauNgekos mengakses lokasi Anda untuk menemukan kos terdekat."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Izinkan Mau Ngekos mengakses foto Anda untuk upload gambar kos."
+          "photosPermission": "Izinkan MauNgekos mengakses foto Anda untuk upload gambar."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

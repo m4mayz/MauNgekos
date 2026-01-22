@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MapPin, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-import { colorScheme } from 'nativewind';
+import { useColorScheme } from 'nativewind';
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -15,6 +15,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { colorScheme } = useColorScheme();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -49,21 +50,12 @@ export default function LoginScreen() {
         <View className="flex-1 justify-center px-6 py-12">
           {/* Logo & Title */}
           <View className="mb-12 items-center">
-            {/* jika mode gelap maka tampilkan icon hitam */}
-            {colorScheme === 'dark' ? (
-              <Image
-                source={require('@/assets/images/icon-no-bg1.png')}
-                style={{ width: 100, height: 100 }}
-                resizeMode="cover"
-              />
-            ) : (
-              <Image
-                source={require('@/assets/images/icon-no-bg2.png')}
-                style={{ width: 100, height: 100 }}
-                resizeMode="cover"
-              />
-            )}
-            <Text className="mt-2 text-center font-extrabold text-2xl">Login ke MauNgekos</Text>
+            <Image
+              source={require('@/assets/images/Horizontal-nobg.png')}
+              className="mb-5 h-24 w-full"
+              resizeMode="contain"
+              tintColor={colorScheme === 'dark' ? '#fff' : 'hsl(175 66% 32%)'}
+            />
             <Text className="mt-2 text-center text-muted-foreground">
               Masuk ke akun Anda untuk melanjutkan
             </Text>

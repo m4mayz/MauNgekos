@@ -152,6 +152,7 @@ export default function TabsLayout() {
           name="favorites"
           options={{
             title: 'Disimpan',
+            headerShown: false,
             tabBarIcon: ({ color, size }) => <Bookmark size={size} color={color} />,
           }}
         />
@@ -159,6 +160,7 @@ export default function TabsLayout() {
           name="profile"
           options={{
             title: 'Profil',
+            headerShown: false,
             tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
           }}
         />
