@@ -43,7 +43,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       className="flex-1 bg-background">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View className="flex-1 justify-center px-6 py-12">
@@ -63,7 +63,7 @@ export default function LoginScreen() {
                 resizeMode="cover"
               />
             )}
-            <Text className="mt-2 text-center text-2xl font-extrabold">Login ke MauNgekos</Text>
+            <Text className="mt-2 text-center font-extrabold text-2xl">Login ke MauNgekos</Text>
             <Text className="mt-2 text-center text-muted-foreground">
               Masuk ke akun Anda untuk melanjutkan
             </Text>

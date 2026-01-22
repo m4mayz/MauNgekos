@@ -43,23 +43,42 @@ export interface KosFilter {
   hasAvailableRooms?: boolean;
 }
 
-// Common facilities for kos
-export const FACILITIES = [
-  'WiFi',
-  'AC',
-  'Kamar Mandi Dalam',
-  'Kamar Mandi Luar',
-  'Parkir Motor',
-  'Parkir Mobil',
-  'Dapur',
-  'Kulkas',
-  'Mesin Cuci',
-  'TV',
-  'Meja Belajar',
-  'Lemari',
-  'Kasur',
+// Room facilities (Fasilitas Kamar)
+export const ROOM_FACILITIES = [
+  'K. Mandi Dalam',
+  'Kloset Duduk',
   'Air Panas',
-  'Security 24 Jam',
+  'Kasur',
+  'Lemari / Storage',
+  'TV',
+  'AC',
+  'Meja',
+  'Kursi',
+  'Kipas Angin',
+  'Jendela',
+  'Termasuk Listrik',
 ] as const;
 
+// Common facilities (Fasilitas Umum)
+export const COMMON_FACILITIES = [
+  'WiFi',
+  'Parkir Mobil',
+  'Parkir Motor',
+  'Dapur',
+  'Mesin Cuci',
+  'Penjaga Kos',
+  'Laundry',
+  'Mushola',
+  'Kulkas',
+  'Dispenser',
+  'TV Umum',
+  'R. Keluarga',
+] as const;
+
+// All facilities combined
+export const FACILITIES = [...ROOM_FACILITIES, ...COMMON_FACILITIES] as const;
+
+export type RoomFacility = (typeof ROOM_FACILITIES)[number];
+export type CommonFacility = (typeof COMMON_FACILITIES)[number];
 export type Facility = (typeof FACILITIES)[number];
+export type FacilityCategory = 'room' | 'common';

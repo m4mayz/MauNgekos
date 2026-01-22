@@ -18,7 +18,7 @@ function Input({
   const inputRef = React.useRef<TextInput>(null);
 
   const baseInputClass = cn(
-    'flex-1 font-sans text-base text-foreground',
+    'flex-1 font-sans text-sm text-foreground',
     Platform.select({
       web: cn(
         'outline-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground md:text-sm'
@@ -28,7 +28,7 @@ function Input({
   );
 
   const containerClass = cn(
-    'flex h-12 w-full flex-row items-center rounded-xl border border-input bg-background px-4 shadow-sm shadow-black/5 dark:bg-input/30',
+    'flex h-12 w-full flex-row items-center rounded-full border border-input bg-background px-4 shadow-sm shadow-black/5',
     props.editable === false &&
       cn(
         'opacity-50',
