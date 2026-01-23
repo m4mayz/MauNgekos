@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Pressable, SafeAreaView, ScrollView } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  Image,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
@@ -13,7 +23,6 @@ import { getApprovedKos } from '@/services/kosService';
 import {
   Search,
   X,
-  Navigation,
   LogIn,
   User,
   MapPin,
@@ -21,6 +30,7 @@ import {
   Home,
   Sparkles,
   CheckCircle,
+  Compass,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
@@ -157,6 +167,7 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<KosFilter>({});
   const [loading, setLoading] = useState(true);
+  const [isLocating, setIsLocating] = useState(false);
 
   // Separate state for dialog-based filters
   const [tempPriceMin, setTempPriceMin] = useState('');
@@ -248,19 +259,54 @@ export default function HomeScreen() {
 
   const goToUserLocation = async () => {
     try {
+      setIsLocating(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        const location = await Location.getCurrentPositionAsync({});
-        const newRegion: Region = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        };
-        mapRef.current?.animateToRegion(newRegion, 1000);
+        // Try to get last known position first (fastest)
+        const lastKnown = await Location.getLastKnownPositionAsync({});
+        if (lastKnown) {
+          const newRegion: Region = {
+            latitude: lastKnown.coords.latitude,
+            longitude: lastKnown.coords.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          };
+          mapRef.current?.animateToRegion(newRegion, 1000);
+        }
+
+        // Then get fresh current position with timeout
+        const locationPromise = Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        // Race between location and 5s timeout
+        const timeoutPromise = new Promise((resolve, reject) => {
+          setTimeout(() => reject(new Error('Location timeout')), 5000);
+        });
+
+        try {
+          const location = (await Promise.race([
+            locationPromise,
+            timeoutPromise,
+          ])) as Location.LocationObject;
+
+          const newRegion: Region = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          };
+          mapRef.current?.animateToRegion(newRegion, 1000);
+        } catch (e) {
+          // If timeout or error, we stick with lastKnown or just stop loading
+          console.log('Using last known location or timeout occurred');
+        }
       }
     } catch (error) {
-      console.log('Could not get location');
+      console.log('Could not get location', error);
+      Alert.alert('Error', 'Gagal mendapatkan lokasi saat ini');
+    } finally {
+      setIsLocating(false);
     }
   };
 
@@ -325,7 +371,7 @@ export default function HomeScreen() {
                 size="icon"
                 className="h-10 self-center shadow shadow-black"
                 onPress={() => router.push('/(auth)/login')}>
-                <LogIn size={20} color="hsl(0, 0%, 98%)" />
+                <Image source={require('@/assets/images/icon-no-bg1.png')} className="h-9 w-9" />
               </Button>
             )}
             {user && (
@@ -379,7 +425,7 @@ export default function HomeScreen() {
                 </DialogHeader>
                 <View className="gap-4">
                   <View className="gap-3">
-                    <Label>Harga Minimum</Label>
+                    <Label>Harga Minimum (Rp)</Label>
                     <Input
                       placeholder="Contoh: 500000"
                       value={tempPriceMin}
@@ -388,7 +434,7 @@ export default function HomeScreen() {
                     />
                   </View>
                   <View className="gap-3">
-                    <Label>Harga Maksimum</Label>
+                    <Label>Harga Maksimum (Rp)</Label>
                     <Input
                       placeholder="Contoh: 2000000"
                       value={tempPriceMax}
@@ -635,9 +681,17 @@ export default function HomeScreen() {
         <Button
           variant="outline"
           size="icon"
-          className="absolute bottom-32 right-4 rounded-full bg-background shadow-lg"
-          onPress={goToUserLocation}>
-          <Navigation size={20} color="hsl(175, 66%, 32%)" />
+          className="absolute bottom-[20px] right-4 h-12 w-12 rounded-2xl border-0 bg-background shadow-lg shadow-black dark:bg-[#000]"
+          onPress={goToUserLocation}
+          disabled={isLocating}>
+          {isLocating ? (
+            <ActivityIndicator
+              size="small"
+              color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
+            />
+          ) : (
+            <Compass size={24} color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'} />
+          )}
         </Button>
 
         {/* Selected Kos Preview */}

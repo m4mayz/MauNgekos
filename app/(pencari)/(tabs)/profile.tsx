@@ -1,4 +1,5 @@
-import { View, Alert, ScrollView, Pressable, Image } from 'react-native';
+import { View, Alert, ScrollView, Pressable, Image, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Text } from '@/components/ui/text';
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
+  const [loading, setLoading] = useState(false);
 
   const handleSignOut = () => {
     Alert.alert('Keluar', 'Apakah Anda yakin ingin keluar?', [
@@ -32,7 +34,15 @@ export default function ProfileScreen() {
         text: 'Keluar',
         style: 'destructive',
         onPress: async () => {
-          await signOut();
+          setLoading(true);
+          try {
+            await signOut();
+            router.replace('/(pencari)/home');
+          } catch (error) {
+            Alert.alert('Error', 'Gagal keluar');
+          } finally {
+            setLoading(false);
+          }
         },
       },
     ]);
@@ -203,9 +213,19 @@ export default function ProfileScreen() {
 
         {/* Sign Out Button */}
         <View className="mb-8 mt-4 px-4">
-          <Button variant="destructive" onPress={handleSignOut} className="flex-row gap-2">
-            <LogOut size={20} className="text-destructive-foreground" />
-            <Text className="font-semibold text-destructive-foreground">Keluar</Text>
+          <Button
+            variant="destructive"
+            onPress={handleSignOut}
+            disabled={loading}
+            className="flex-row gap-2">
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <LogOut size={20} className="text-destructive-foreground" />
+                <Text className="font-semibold text-destructive-foreground">Keluar</Text>
+              </>
+            )}
           </Button>
         </View>
       </ScrollView>

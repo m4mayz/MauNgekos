@@ -1,36 +1,22 @@
 import { Stack } from 'expo-router';
+import { useColorScheme } from 'nativewind';
 
 export default function PenyewaLayout() {
+  const { colorScheme } = useColorScheme();
+
   return (
     <Stack
       screenOptions={{
-        headerShown: true,
+        headerShown: false,
         animation: 'slide_from_right',
+        contentStyle: {
+          backgroundColor: colorScheme === 'dark' ? '#09090b' : '#fff',
+        },
       }}>
-      <Stack.Screen
-        name="dashboard"
-        options={{
-          title: 'Kos Saya',
-        }}
-      />
-      <Stack.Screen
-        name="kos/add"
-        options={{
-          title: 'Tambah Kos',
-        }}
-      />
-      <Stack.Screen
-        name="kos/[id]/edit"
-        options={{
-          title: 'Edit Kos',
-        }}
-      />
-      <Stack.Screen
-        name="profile"
-        options={{
-          title: 'Profil',
-        }}
-      />
+      <Stack.Screen name="dashboard" />
+      <Stack.Screen name="kos/add" />
+      <Stack.Screen name="kos/[id]/edit" />
+      <Stack.Screen name="profile" />
     </Stack>
   );
 }

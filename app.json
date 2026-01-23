@@ -63,7 +63,7 @@
           "photosPermission": "Izinkan MauNgekos mengakses foto Anda untuk upload gambar."
         }
       ],
-      "expo-web-browser"
+      "expo-file-system"
     ],
     "experiments": {
       "typedRoutes": true

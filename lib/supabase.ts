@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 
 // TODO: Replace with your Supabase config from Supabase Dashboard
 const supabaseUrl = 'https://uaxhnyyeagrokugdvjhm.supabase.co';
@@ -26,28 +27,55 @@ export const KOS_IMAGES_BUCKET = 'kos-images';
  */
 export async function uploadImage(uri: string, path: string): Promise<string | null> {
   try {
-    const response = await fetch(uri);
-    const blob = await response.blob();
+    console.log('🔵 Starting upload:', { uri, path });
 
-    const { data, error } = await supabase.storage.from(KOS_IMAGES_BUCKET).upload(path, blob, {
-      contentType: 'image/jpeg',
-      upsert: true,
+    // Read file as base64 using expo-file-system (more reliable in RN)
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: 'base64',
     });
+    console.log('🔵 Base64 read, length:', base64.length);
+
+    // Convert base64 to binary
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    console.log('🔵 Binary array created, size:', byteArray.length);
+
+    const { data, error } = await supabase.storage
+      .from(KOS_IMAGES_BUCKET)
+      .upload(path, byteArray.buffer, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
 
     if (error) {
-      console.error('Upload error:', error);
-      return null;
+      console.error('🔴 Upload error:', {
+        message: error.message,
+        name: error.name,
+      });
+      throw error;
     }
+
+    console.log('🟢 Upload success:', data);
 
     // Get public URL
     const {
       data: { publicUrl },
     } = supabase.storage.from(KOS_IMAGES_BUCKET).getPublicUrl(data.path);
 
+    console.log('🟢 Public URL:', publicUrl);
     return publicUrl;
-  } catch (error) {
-    console.error('Upload error:', error);
-    return null;
+  } catch (error: any) {
+    console.error('🔴 Upload error (full):', {
+      message: error?.message || 'Unknown error',
+      name: error?.name,
+      status: error?.status,
+      statusCode: error?.statusCode,
+    });
+    throw error;
   }
 }
 

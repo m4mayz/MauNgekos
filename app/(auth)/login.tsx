@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { View, KeyboardAvoidingView, Platform, ScrollView, Alert, Image } from 'react-native';
+import {
+  View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { Link } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Text } from '@/components/ui/text';
@@ -100,9 +108,11 @@ export default function LoginScreen() {
 
             {/* Login Button */}
             <Button onPress={handleLogin} disabled={loading} className="mt-4" size="lg">
-              <Text className="font-semibold text-primary-foreground">
-                {loading ? 'Loading...' : 'Masuk'}
-              </Text>
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text className="font-semibold text-primary-foreground">Masuk</Text>
+              )}
             </Button>
 
             {/* Register Link */}

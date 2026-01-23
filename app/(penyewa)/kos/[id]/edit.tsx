@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -8,19 +8,27 @@ import {
   Image,
   Pressable,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useAuth } from '@/contexts/AuthContext';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Kos, KosType, FACILITIES } from '@/types';
+import { Kos, KosType, ROOM_FACILITIES, COMMON_FACILITIES } from '@/types';
 import { getKosById, updateKos, createGeoPoint } from '@/services/kosService';
 import { uploadImage, deleteImage } from '@/lib/supabase';
-import { Camera, X, MapPin, Home } from 'lucide-react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { X, MapPin, Home, Plus, ChevronLeft, Check, Compass } from 'lucide-react-native';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useColorScheme } from 'nativewind';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 
 type KosTypeOption = {
   value: KosType;
@@ -34,13 +42,131 @@ const KOS_TYPES: KosTypeOption[] = [
   { value: 'campur', label: 'Campur', color: '#10B981' },
 ];
 
+// Dark mode map style
+const DARK_MAP_STYLE = [
+  {
+    elementType: 'geometry',
+    stylers: [{ color: '#242f3e' }],
+  },
+  {
+    elementType: 'labels.text.stroke',
+    stylers: [{ color: '#242f3e' }],
+  },
+  {
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#746855' }],
+  },
+  {
+    featureType: 'administrative.locality',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#d59563' }],
+  },
+  {
+    featureType: 'poi',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#d59563' }],
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'geometry',
+    stylers: [{ color: '#263c3f' }],
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#6b9a76' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry',
+    stylers: [{ color: '#38414e' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#212a37' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#9ca5b3' }],
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'geometry',
+    stylers: [{ color: '#746855' }],
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#1f2835' }],
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#f3d19c' }],
+  },
+  {
+    featureType: 'transit',
+    elementType: 'geometry',
+    stylers: [{ color: '#2f3948' }],
+  },
+  {
+    featureType: 'transit.station',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#d59563' }],
+  },
+  {
+    featureType: 'water',
+    elementType: 'geometry',
+    stylers: [{ color: '#17263c' }],
+  },
+  {
+    featureType: 'water',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#515c6d' }],
+  },
+  {
+    featureType: 'water',
+    elementType: 'labels.text.stroke',
+    stylers: [{ color: '#17263c' }],
+  },
+];
+
+// Default location (Jakarta)
+const DEFAULT_REGION: Region = {
+  latitude: -6.2088,
+  longitude: 106.8456,
+  latitudeDelta: 0.0922,
+  longitudeDelta: 0.0421,
+};
+
 export default function EditKosScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const { colorScheme } = useColorScheme();
+  const insets = useSafeAreaInsets();
+  const mapRef = useRef<MapView>(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [images, setImages] = useState<string[]>([]);
   const [newImages, setNewImages] = useState<string[]>([]);
+
+  const iconColor = colorScheme === 'dark' ? 'white' : 'black';
+  const mutedColor = colorScheme === 'dark' ? '#9CA3AF' : '#6B7280';
+
+  // Tab state for facilities
+  const [activeTab, setActiveTab] = useState('room');
+
+  // Location picker state
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [tempLocation, setTempLocation] = useState({
+    latitude: -6.2088,
+    longitude: 106.8456,
+  });
+  const [isMapMoving, setIsMapMoving] = useState(false);
 
   // Form state
   const [name, setName] = useState('');
@@ -52,8 +178,9 @@ export default function EditKosScreen() {
   const [totalRooms, setTotalRooms] = useState('');
   const [availableRooms, setAvailableRooms] = useState('');
   const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
+
+  const [latitude, setLatitude] = useState('-6.2088');
+  const [longitude, setLongitude] = useState('106.8456');
 
   useEffect(() => {
     if (id) {
@@ -77,6 +204,10 @@ export default function EditKosScreen() {
         setImages(kos.images);
         setLatitude(kos.location.latitude.toString());
         setLongitude(kos.location.longitude.toString());
+        setTempLocation({
+          latitude: kos.location.latitude,
+          longitude: kos.location.longitude,
+        });
       }
     } catch (error) {
       console.error('Error loading kos:', error);
@@ -86,16 +217,31 @@ export default function EditKosScreen() {
     }
   };
 
+  // Location picker functions
+  const openLocationPicker = () => {
+    setTempLocation({
+      latitude: parseFloat(latitude) || -6.2088,
+      longitude: parseFloat(longitude) || 106.8456,
+    });
+    setShowLocationPicker(true);
+  };
+
+  const confirmLocation = () => {
+    setLatitude(tempLocation.latitude.toString());
+    setLongitude(tempLocation.longitude.toString());
+    setShowLocationPicker(false);
+  };
+
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [16, 9],
       quality: 0.8,
+      allowsMultipleSelection: true,
+      selectionLimit: 5,
     });
 
-    if (!result.canceled && result.assets[0]) {
-      setNewImages((prev) => [...prev, result.assets[0].uri]);
+    if (!result.canceled && result.assets) {
+      setNewImages((prev) => [...prev, ...result.assets.map((asset) => asset.uri)]);
     }
   };
 
@@ -113,6 +259,59 @@ export default function EditKosScreen() {
     );
   };
 
+  const goToUserLocation = async () => {
+    try {
+      setIsLocating(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        // Try to get last known position first (fastest)
+        const lastKnown = await Location.getLastKnownPositionAsync({});
+        if (lastKnown) {
+          const newRegion: Region = {
+            latitude: lastKnown.coords.latitude,
+            longitude: lastKnown.coords.longitude,
+            latitudeDelta: 0.005,
+            longitudeDelta: 0.005,
+          };
+          mapRef.current?.animateToRegion(newRegion, 1000);
+        }
+
+        // Then get fresh current position with timeout
+        const locationPromise = Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        // Race between location and 5s timeout
+        const timeoutPromise = new Promise((resolve, reject) => {
+          setTimeout(() => reject(new Error('Location timeout')), 5000);
+        });
+
+        try {
+          const location = (await Promise.race([
+            locationPromise,
+            timeoutPromise,
+          ])) as Location.LocationObject;
+
+          const newRegion: Region = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: 0.005,
+            longitudeDelta: 0.005,
+          };
+          mapRef.current?.animateToRegion(newRegion, 1000);
+        } catch (e) {
+          // If timeout or error, we stick with lastKnown if we have it
+          console.log('Using last known location or timeout occurred');
+        }
+      }
+    } catch (error) {
+      console.log('Could not get location', error);
+      Alert.alert('Error', 'Gagal mendapatkan lokasi saat ini');
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
   const validateForm = () => {
     if (!name.trim()) {
       Alert.alert('Error', 'Nama kos harus diisi');
@@ -128,6 +327,10 @@ export default function EditKosScreen() {
     }
     if (!totalRooms || !availableRooms) {
       Alert.alert('Error', 'Jumlah kamar harus diisi');
+      return false;
+    }
+    if (parseInt(availableRooms) > parseInt(totalRooms)) {
+      Alert.alert('Error', 'Kamar tersedia tidak boleh lebih dari total kamar');
       return false;
     }
     return true;
@@ -188,11 +391,22 @@ export default function EditKosScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-background">
       <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
-        <View className="gap-6 p-4">
-          {/* Images */}
+        {/* Custom Header */}
+        <View
+          className="flex-row items-center gap-2 px-2 pb-4"
+          style={{ paddingTop: insets.top + 10 }}>
+          <Button variant="ghost" size="icon" onPress={() => router.back()}>
+            <ChevronLeft size={24} color={iconColor} />
+          </Button>
+          <Text className="font-semibold text-lg">Edit Kos</Text>
+        </View>
+
+        <View className="gap-6 px-4 pb-4">
           <View>
-            <Label className="mb-2">Foto Kos</Label>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <Label className="mb-2">
+              Foto Kos <Text className="text-destructive">*</Text>
+            </Label>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="gap-2">
               <View className="flex-row gap-2">
                 {images.map((uri, index) => (
                   <View key={`existing-${index}`} className="relative">
@@ -200,9 +414,9 @@ export default function EditKosScreen() {
                     <Button
                       variant="destructive"
                       size="icon"
-                      className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
+                      className="absolute -right-2 -top-2 mt-2 h-6 w-6 rounded-full"
                       onPress={() => removeExistingImage(index)}>
-                      <X size={12} className="text-destructive-foreground" />
+                      <X size={12} color="white" />
                     </Button>
                   </View>
                 ))}
@@ -212,16 +426,16 @@ export default function EditKosScreen() {
                     <Button
                       variant="destructive"
                       size="icon"
-                      className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
+                      className="absolute -right-2 -top-2 mt-2 h-6 w-6 rounded-full"
                       onPress={() => removeNewImage(index)}>
-                      <X size={12} className="text-destructive-foreground" />
+                      <X size={12} color="white" />
                     </Button>
                   </View>
                 ))}
                 <Pressable
                   onPress={pickImage}
                   className="h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-border">
-                  <Camera size={24} className="text-muted-foreground" />
+                  <Plus size={24} color={iconColor} />
                   <Text className="mt-1 text-xs text-muted-foreground">Tambah</Text>
                 </Pressable>
               </View>
@@ -230,35 +444,31 @@ export default function EditKosScreen() {
 
           {/* Name */}
           <View className="gap-2">
-            <Label nativeID="name">Nama Kos *</Label>
-            <View className="relative">
-              <Home
-                size={20}
-                className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                placeholder="Contoh: Kos Putri Mawar"
-                value={name}
-                onChangeText={setName}
-                className="pl-11"
-                aria-labelledby="name"
-              />
-            </View>
+            <Label nativeID="name">
+              Nama Kos <Text className="text-destructive">*</Text>
+            </Label>
+            <Input
+              placeholder="Contoh: Kos Putri Mawar"
+              value={name}
+              onChangeText={setName}
+              leftIcon={<Home size={20} color={mutedColor} />}
+              aria-labelledby="name"
+            />
           </View>
 
           {/* Address */}
           <View className="gap-2">
-            <Label nativeID="address">Alamat Lengkap *</Label>
-            <View className="relative">
-              <MapPin size={20} className="absolute left-3 top-3 z-10 text-muted-foreground" />
-              <Textarea
-                placeholder="Jl. xxx No. xx, Kelurahan, Kecamatan, Kota"
-                value={address}
-                onChangeText={setAddress}
-                className="min-h-[80px] pl-11"
-                aria-labelledby="address"
-              />
-            </View>
+            <Label nativeID="address">
+              Alamat Lengkap <Text className="text-destructive">*</Text>
+            </Label>
+            <Textarea
+              placeholder="Jl. xxx No. xx, Kelurahan, Kecamatan, Kota"
+              value={address}
+              onChangeText={setAddress}
+              className="min-h-[80px] text-sm"
+              aria-labelledby="address"
+              placeholderTextColor={mutedColor}
+            />
           </View>
 
           {/* Description */}
@@ -268,14 +478,17 @@ export default function EditKosScreen() {
               placeholder="Deskripsikan kos Anda..."
               value={description}
               onChangeText={setDescription}
-              className="min-h-[100px]"
+              className="min-h-[100px] text-sm"
               aria-labelledby="description"
+              placeholderTextColor={mutedColor}
             />
           </View>
 
           {/* Type */}
           <View className="gap-2">
-            <Label>Tipe Kos *</Label>
+            <Label>
+              Tipe Kos <Text className="text-destructive">*</Text>
+            </Label>
             <View className="flex-row gap-2">
               {KOS_TYPES.map((option) => (
                 <Pressable
@@ -298,7 +511,9 @@ export default function EditKosScreen() {
 
           {/* Price Range */}
           <View className="gap-2">
-            <Label>Rentang Harga per Bulan *</Label>
+            <Label>
+              Rentang Harga per Bulan <Text className="text-destructive">*</Text>
+            </Label>
             <View className="flex-row gap-3">
               <View className="relative flex-1">
                 <Text className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground">
@@ -330,7 +545,9 @@ export default function EditKosScreen() {
 
           {/* Rooms */}
           <View className="gap-2">
-            <Label>Jumlah Kamar *</Label>
+            <Label>
+              Jumlah Kamar <Text className="text-destructive">*</Text>
+            </Label>
             <View className="flex-row gap-3">
               <View className="flex-1 gap-1">
                 <Text className="text-sm text-muted-foreground">Total</Text>
@@ -356,64 +573,184 @@ export default function EditKosScreen() {
           {/* Facilities */}
           <View className="gap-2">
             <Label>Fasilitas</Label>
-            <View className="flex-row flex-wrap gap-2">
-              {FACILITIES.map((facility) => (
-                <Pressable
-                  key={facility}
-                  onPress={() => toggleFacility(facility)}
-                  className={`flex-row items-center gap-2 rounded-lg border px-3 py-2 ${
-                    selectedFacilities.includes(facility)
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border'
-                  }`}>
-                  <View
-                    className={`h-4 w-4 rounded border ${
-                      selectedFacilities.includes(facility)
-                        ? 'border-primary bg-primary'
-                        : 'border-muted-foreground'
-                    }`}
-                  />
-                  <Text className={selectedFacilities.includes(facility) ? 'text-primary' : ''}>
-                    {facility}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="w-full">
+                <TabsTrigger value="room" className="flex-1">
+                  <Text>Kamar</Text>
+                </TabsTrigger>
+                <TabsTrigger value="common" className="flex-1">
+                  <Text>Umum</Text>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="room" className="gap-3 pt-3">
+                <View className="flex-row flex-wrap gap-2">
+                  {ROOM_FACILITIES.map((facility) => (
+                    <Pressable
+                      key={facility}
+                      onPress={() => toggleFacility(facility)}
+                      className={`shrink-0 flex-row items-center gap-2 rounded-lg border px-3 py-2 ${
+                        selectedFacilities.includes(facility)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border'
+                      }`}>
+                      <View
+                        className={`h-4 w-4 items-center justify-center rounded border ${
+                          selectedFacilities.includes(facility)
+                            ? 'border-primary bg-primary'
+                            : 'border-muted-foreground'
+                        }`}>
+                        {selectedFacilities.includes(facility) && (
+                          <Check size={12} color="#fff" strokeWidth={3} />
+                        )}
+                      </View>
+                      <Text
+                        className={`shrink-0 leading-normal ${selectedFacilities.includes(facility) ? 'text-primary' : ''}`}>
+                        {facility.replace(/ /g, '\u00A0')}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </TabsContent>
+              <TabsContent value="common" className="gap-3 pt-3">
+                <View className="flex-row flex-wrap gap-2">
+                  {COMMON_FACILITIES.map((facility) => (
+                    <Pressable
+                      key={facility}
+                      onPress={() => toggleFacility(facility)}
+                      className={`shrink-0 flex-row items-center gap-2 rounded-lg border px-3 py-2 ${
+                        selectedFacilities.includes(facility)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border'
+                      }`}>
+                      <View
+                        className={`h-4 w-4 items-center justify-center rounded border ${
+                          selectedFacilities.includes(facility)
+                            ? 'border-primary bg-primary'
+                            : 'border-muted-foreground'
+                        }`}>
+                        {selectedFacilities.includes(facility) && (
+                          <Check size={12} color="#fff" strokeWidth={3} />
+                        )}
+                      </View>
+                      <Text
+                        className={`shrink-0 leading-normal ${selectedFacilities.includes(facility) ? 'text-primary' : ''}`}>
+                        {facility.replace(/ /g, '\u00A0')}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </TabsContent>
+            </Tabs>
           </View>
 
-          {/* Location */}
+          {/* Location Picker */}
           <View className="gap-2">
-            <Label>Koordinat Lokasi</Label>
-            <View className="flex-row gap-3">
-              <View className="flex-1 gap-1">
-                <Text className="text-sm text-muted-foreground">Latitude</Text>
-                <Input
-                  placeholder="-6.2088"
-                  value={latitude}
-                  onChangeText={setLatitude}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-              <View className="flex-1 gap-1">
-                <Text className="text-sm text-muted-foreground">Longitude</Text>
-                <Input
-                  placeholder="106.8456"
-                  value={longitude}
-                  onChangeText={setLongitude}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-            </View>
+            <Label>Lokasi Kos</Label>
+            <Text className="mb-2 text-xs text-muted-foreground">Pilih lokasi kos pada peta</Text>
+            <Button variant="outline" onPress={openLocationPicker} className="flex-row gap-2">
+              <MapPin size={20} color={mutedColor} />
+              <Text>{latitude && longitude ? 'Ubah Lokasi' : 'Pilih Lokasi'}</Text>
+            </Button>
+            {latitude && longitude && (
+              <Text className="text-xs text-muted-foreground">
+                📍 {parseFloat(latitude).toFixed(6)}, {parseFloat(longitude).toFixed(6)}
+              </Text>
+            )}
           </View>
 
           {/* Submit Button */}
-          <Button onPress={handleSubmit} disabled={saving} size="lg" className="mt-4">
-            <Text className="font-semibold text-primary-foreground">
-              {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
-            </Text>
+          <Button onPress={handleSubmit} disabled={saving} size="lg" className="mb-5 mt-4">
+            {saving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text className="font-semibold text-primary-foreground">Simpan Perubahan</Text>
+            )}
           </Button>
         </View>
       </ScrollView>
+
+      {/* Location Picker Modal */}
+      <Modal
+        visible={showLocationPicker}
+        animationType="slide"
+        onRequestClose={() => setShowLocationPicker(false)}>
+        <View className="flex-1 bg-background">
+          {/* Modal Header */}
+          <View
+            className="flex-row items-center justify-between px-4 py-3"
+            style={{ paddingTop: insets.top + 10 }}>
+            <Button variant="ghost" onPress={() => setShowLocationPicker(false)}>
+              <Text>Batal</Text>
+            </Button>
+            <Text className="font-semibold text-lg">Pilih Lokasi</Text>
+            <View className="w-10" />
+          </View>
+
+          {/* Map */}
+          <View className="relative flex-1">
+            <MapView
+              ref={mapRef}
+              provider={PROVIDER_GOOGLE}
+              style={{ flex: 1 }}
+              customMapStyle={colorScheme === 'dark' ? DARK_MAP_STYLE : []}
+              userInterfaceStyle={colorScheme === 'dark' ? 'dark' : 'light'}
+              initialRegion={{
+                latitude: tempLocation.latitude,
+                longitude: tempLocation.longitude,
+                latitudeDelta: 0.005,
+                longitudeDelta: 0.005,
+              }}
+              onRegionChange={() => setIsMapMoving(true)}
+              onRegionChangeComplete={(region) => {
+                setTempLocation({
+                  latitude: region.latitude,
+                  longitude: region.longitude,
+                });
+                setIsMapMoving(false);
+              }}></MapView>
+            {/* Center Pin */}
+            <View className="pointer-events-none absolute inset-0 items-center justify-center pb-12">
+              <MaterialIcons name="location-on" size={48} color="#EA4335" />
+            </View>
+
+            {/* Floating Select Button */}
+            {!isMapMoving && (
+              <Animated.View
+                entering={FadeInDown.duration(300).delay(1000)}
+                exiting={FadeOutDown.duration(200)}
+                className="absolute bottom-6 left-4 right-4">
+                <Button onPress={confirmLocation} size="lg" className="shadow-lg shadow-black/20">
+                  <Text className="font-semibold text-primary-foreground">Pilih Lokasi Ini</Text>
+                </Button>
+              </Animated.View>
+            )}
+            {/* My Location Button */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute bottom-[100px] right-4 h-12 w-12 rounded-2xl border-0 bg-background shadow-lg shadow-black dark:bg-[#000]"
+              onPress={goToUserLocation}
+              disabled={isLocating}>
+              {isLocating ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
+                />
+              ) : (
+                <Compass size={24} color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'} />
+              )}
+            </Button>
+          </View>
+
+          {/* Location Info */}
+          <View className="bg-background px-4 py-3 pb-8 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+            <Text className="text-sm text-muted-foreground">Koordinat:</Text>
+            <Text className="font-medium font-mono text-sm">
+              {tempLocation.latitude.toFixed(6)}, {tempLocation.longitude.toFixed(6)}
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

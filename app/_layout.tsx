@@ -3,7 +3,7 @@ import '@/global.css';
 import { NAV_THEME } from '@/lib/theme';
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot, useRouter, useSegments, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { useEffect } from 'react';
@@ -68,7 +68,16 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <Slot />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+        }}>
+        <Stack.Screen name="(pencari)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="(auth)" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="(penyewa)" />
+        <Stack.Screen name="(admin)" />
+      </Stack>
       <PortalHost />
     </ThemeProvider>
   );
