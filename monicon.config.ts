@@ -9,6 +9,8 @@ export default {
   // Format: 'collection:icon-name' (e.g., 'lucide:home', 'material-symbols:wifi')
   icons: [
     'cil:couch',
+    'ic:baseline-bookmark',
+    'ic:baseline-my-location',
     'ic:baseline-whatsapp',
     'ic:round-tv',
     'material-symbols:ac-unit',

@@ -13,6 +13,8 @@
 
 import React from 'react';
 import CouchIcon from '@/components/icons/cil/couch';
+import BaselineBookmarkIcon from '@/components/icons/ic/baseline-bookmark';
+import BaselineMyLocationIcon from '@/components/icons/ic/baseline-my-location';
 import BaselineWhatsappIcon from '@/components/icons/ic/baseline-whatsapp';
 import RoundTvIcon from '@/components/icons/ic/round-tv';
 import AcUnitIcon from '@/components/icons/material-symbols/ac-unit';
@@ -54,6 +56,10 @@ import ShelfIcon from '@/components/icons/streamline/shelf';
 export const FACILITY_ICON_MAP: Record<string, React.ComponentType<any>> = {
   'cil:couch': CouchIcon,
   'couch': CouchIcon, // backward compat
+  'ic:baseline-bookmark': BaselineBookmarkIcon,
+  'baseline-bookmark': BaselineBookmarkIcon, // backward compat
+  'ic:baseline-my-location': BaselineMyLocationIcon,
+  'baseline-my-location': BaselineMyLocationIcon, // backward compat
   'ic:baseline-whatsapp': BaselineWhatsappIcon,
   'baseline-whatsapp': BaselineWhatsappIcon, // backward compat
   'ic:round-tv': RoundTvIcon,

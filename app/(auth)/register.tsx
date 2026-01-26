@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin, Mail, Lock, User, Phone, Eye, EyeOff, Search, Home } from 'lucide-react-native';
+import { MapPin, Mail, Lock, User, Eye, EyeOff, Search, Home } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type RoleOption = {
@@ -36,7 +36,6 @@ export default function RegisterScreen() {
   const { signUp } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<Exclude<UserRole, 'admin'>>('pencari');
@@ -63,7 +62,7 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await signUp(email, password, name, role, phone || undefined);
+      await signUp(email, password, name, role);
       // Navigation will be handled by auth state change
     } catch (error: any) {
       let message = 'Terjadi kesalahan saat mendaftar';
@@ -154,21 +153,6 @@ export default function RegisterScreen() {
                   autoCapitalize="none"
                   aria-labelledby="email"
                   leftIcon={<Mail size={20} color="hsl(0, 0%, 45%)" />}
-                />
-              </View>
-            </View>
-
-            {/* Phone */}
-            <View className="gap-2">
-              <Label nativeID="phone">No. Telepon (Opsional)</Label>
-              <View className="relative">
-                <Input
-                  placeholder="Masukkan nomor telepon"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  aria-labelledby="phone"
-                  leftIcon={<Phone size={20} color="hsl(0, 0%, 45%)" />}
                 />
               </View>
             </View>

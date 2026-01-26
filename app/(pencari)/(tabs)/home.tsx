@@ -55,6 +55,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import IcBaselineMyLocationIcon from '@/components/icons/ic/baseline-my-location';
 
 const { width, height } = Dimensions.get('window');
 
@@ -498,7 +499,7 @@ export default function HomeScreen() {
               <DialogTrigger asChild>
                 <Button
                   variant={filters.priceMin || filters.priceMax ? 'default' : 'outline'}
-                  className="h-9 flex-row items-center gap-1 px-3 shadow-sm shadow-black">
+                  className="h-9 flex-row items-center gap-1 px-3">
                   <DollarSign
                     size={14}
                     color={
@@ -569,7 +570,7 @@ export default function HomeScreen() {
               <DialogTrigger asChild>
                 <Button
                   variant={filters.type ? 'default' : 'outline'}
-                  className="h-9 flex-row items-center gap-1 px-3 shadow-sm shadow-black">
+                  className="h-9 flex-row items-center gap-1 px-3">
                   <Home
                     size={14}
                     color={
@@ -632,7 +633,7 @@ export default function HomeScreen() {
               <DialogTrigger asChild>
                 <Button
                   variant={selectedFacilities.length > 0 ? 'default' : 'outline'}
-                  className="h-9 flex-row items-center gap-1 px-3 shadow-sm shadow-black">
+                  className="h-9 flex-row items-center gap-1 px-3">
                   <Sparkles
                     size={14}
                     color={
@@ -749,7 +750,7 @@ export default function HomeScreen() {
             {/* Available Rooms Toggle */}
             <Button
               variant={filters.hasAvailableRooms ? 'default' : 'outline'}
-              className="h-9 flex-row items-center gap-1 px-3 shadow-sm shadow-black"
+              className="h-9 flex-row items-center gap-1 px-3"
               onPress={() =>
                 setFilters((prev) => ({
                   ...prev,
@@ -785,7 +786,11 @@ export default function HomeScreen() {
                 color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
               />
             ) : (
-              <Compass size={24} color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'} />
+              <IcBaselineMyLocationIcon
+                height={22}
+                width={22}
+                color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
+              />
             )}
           </Button>
         )}

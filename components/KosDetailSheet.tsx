@@ -24,6 +24,9 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Kos, KosType, ROOM_FACILITIES, COMMON_FACILITIES } from '@/types';
 import { getFacilityIcon } from '@/lib/facilityIcons';
+import { useAuth } from '@/contexts/AuthContext';
+import { router } from 'expo-router';
+import { saveKos, unsaveKos, isKosSaved } from '@/services/kosService';
 import {
   MapPin,
   Phone,
@@ -105,17 +108,20 @@ interface KosDetailSheetProps {
 
 export function KosDetailSheet({ kos, onClose, visible }: KosDetailSheetProps) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const translateY = useSharedValue(height);
   const context = useSharedValue({ y: 0 });
   const isVisible = useSharedValue(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isAtMaxSnap, setIsAtMaxSnap] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const colorScheme = useColorScheme();
 
   const iconColor = colorScheme === 'dark' ? 'white' : 'black';
   const mutedColor = colorScheme === 'dark' ? '#9CA3AF' : '#6B7280';
+  const isGuest = !user;
 
   // Animation config - smooth easing
   const animConfig = {
@@ -127,16 +133,22 @@ export function KosDetailSheet({ kos, onClose, visible }: KosDetailSheetProps) {
     if (visible && kos !== null) {
       isVisible.value = true;
       translateY.value = withTiming(SNAP_Y.HALF, animConfig);
+
+      // Check if kos is saved
+      if (user) {
+        isKosSaved(user.id, kos.id).then(setIsSaved);
+      }
     } else if (!visible) {
       isVisible.value = false;
       // No animation here - close() already handles it
     }
-  }, [visible, kos]);
+  }, [visible, kos, user]);
 
   const close = useCallback(() => {
     setIsAtMaxSnap(false);
     setCurrentImageIndex(0);
     setShowFullDescription(false);
+    setIsSaved(false);
     translateY.value = withTiming(height, animConfig, (finished) => {
       if (finished) {
         runOnJS(onClose)();
@@ -185,10 +197,12 @@ export function KosDetailSheet({ kos, onClose, visible }: KosDetailSheetProps) {
   };
 
   const handleWhatsAppPress = () => {
-    if (kos) {
+    if (kos && kos.ownerPhone) {
       const message = `Halo, saya tertarik dengan kos ${kos.name}`;
-      // TODO: ownerPhone not available in Kos type yet
-      // Linking.openURL(`whatsapp://send?phone=${kos.ownerPhone}&text=${encodeURIComponent(message)}`);
+      const phoneNumber = kos.ownerPhone.startsWith('62')
+        ? kos.ownerPhone
+        : `62${kos.ownerPhone.replace(/^0/, '')}`; // Convert 08xxx to 628xxx
+      Linking.openURL(`whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`);
     }
   };
 
@@ -205,9 +219,42 @@ export function KosDetailSheet({ kos, onClose, visible }: KosDetailSheetProps) {
     setCurrentImageIndex(index);
   };
 
-  const handleSave = () => {
-    // TODO: Implement save/favorite functionality
-    console.log('Save kos:', kos?.id);
+  const handleSave = async () => {
+    if (!user || !kos) return;
+
+    // Guest users should login first
+    if (isGuest) {
+      console.log('[KosDetailSheet] Guest user, redirecting to login');
+      handleLogin();
+      return;
+    }
+
+    console.log('[KosDetailSheet] Toggle save for kos:', kos.id, 'Current state:', isSaved);
+
+    // Optimistic update - UI responds instantly
+    const previousState = isSaved;
+    setIsSaved(!isSaved);
+
+    try {
+      if (previousState) {
+        await unsaveKos(user.id, kos.id);
+        console.log('[KosDetailSheet] Kos unsaved');
+      } else {
+        await saveKos(user.id, kos.id);
+        console.log('[KosDetailSheet] Kos saved');
+      }
+    } catch (error) {
+      console.error('[KosDetailSheet] Error saving kos:', error);
+      // Rollback on error
+      setIsSaved(previousState);
+    }
+  };
+
+  const handleLogin = () => {
+    close();
+    setTimeout(() => {
+      router.push('/(auth)/login');
+    }, 500);
   };
 
   if (!kos) return null;
@@ -337,11 +384,32 @@ export function KosDetailSheet({ kos, onClose, visible }: KosDetailSheetProps) {
                         </Text>
                       )}
                     </View>
-                    <View className="flex-row gap-2">
+                    <View className="flex-row items-center gap-2">
+                      {/* Kos Type Badge */}
+                      <View
+                        className="rounded-full px-3 py-1.5"
+                        style={{
+                          backgroundColor: `${KOS_TYPE_COLORS[kos.type].primary}15`,
+                        }}>
+                        <Text
+                          className="font-bold text-xs uppercase"
+                          style={{ color: KOS_TYPE_COLORS[kos.type].primary }}>
+                          {kos.type === 'putra'
+                            ? 'Putra'
+                            : kos.type === 'putri'
+                              ? 'Putri'
+                              : 'Campur'}
+                        </Text>
+                      </View>
+
                       <Pressable
                         onPress={handleSave}
                         className="h-7 w-7 items-center justify-center rounded-full bg-muted active:opacity-70">
-                        <Bookmark size={16} color={iconColor} />
+                        <Bookmark
+                          size={16}
+                          color={isSaved ? KOS_TYPE_COLORS[kos.type].primary : iconColor}
+                          fill={isSaved ? KOS_TYPE_COLORS[kos.type].primary : 'transparent'}
+                        />
                       </Pressable>
                       <Pressable
                         onPress={close}
@@ -364,29 +432,39 @@ export function KosDetailSheet({ kos, onClose, visible }: KosDetailSheetProps) {
 
                 {/* Quick Shortcuts */}
                 <View className="flex-col gap-3">
-                  <View className="flex-row items-center gap-3">
+                  {isGuest ? (
                     <Pressable
-                      onPress={handleNavigate}
-                      className="flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-border bg-transparent py-3 active:opacity-70">
-                      <Text
-                        className="flex-shrink-0 font-semibold text-sm text-foreground"
-                        numberOfLines={1}>
-                        Buka GoogleMaps
+                      onPress={handleLogin}
+                      className="flex-row items-center justify-center gap-2 rounded-lg bg-primary py-3.5 active:opacity-90">
+                      <Text className="font-semibold text-sm text-white">
+                        Masuk untuk lihat selengkapnya
                       </Text>
-                      <ExternalLink size={16} color={iconColor} />
                     </Pressable>
+                  ) : (
+                    <View className="flex-row items-center gap-3">
+                      <Pressable
+                        onPress={handleNavigate}
+                        className="flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-border bg-transparent py-3 active:opacity-70">
+                        <Text
+                          className="flex-shrink-0 font-semibold text-sm text-foreground"
+                          numberOfLines={1}>
+                          Buka Maps
+                        </Text>
+                        <ExternalLink size={16} color={iconColor} />
+                      </Pressable>
 
-                    <Pressable
-                      onPress={handleWhatsAppPress}
-                      className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-primary py-3 active:opacity-90">
-                      <Text
-                        className="flex-shrink-0 font-semibold text-sm text-white"
-                        numberOfLines={1}>
-                        Chat Pemilik
-                      </Text>
-                      <IcBaselineWhatsappIcon height={20} width={20} color="#fff" />
-                    </Pressable>
-                  </View>
+                      <Pressable
+                        onPress={handleWhatsAppPress}
+                        className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-primary py-3 active:opacity-90">
+                        <Text
+                          className="flex-shrink-0 font-semibold text-sm text-white"
+                          numberOfLines={1}>
+                          Hubungi Pemilik
+                        </Text>
+                        <IcBaselineWhatsappIcon height={20} width={20} color="#fff" />
+                      </Pressable>
+                    </View>
+                  )}
                 </View>
 
                 {/* Image Gallery */}
@@ -442,23 +520,35 @@ export function KosDetailSheet({ kos, onClose, visible }: KosDetailSheetProps) {
                     <Text className="font-extrabold text-xs uppercase tracking-wider text-muted-foreground">
                       Total Kamar
                     </Text>
-                    <View className="flex-row items-center gap-2">
-                      <MaterialSymbolsSensorDoorOutline width={20} height={20} color={iconColor} />
-                      <Text className="font-bold text-lg text-foreground">{kos.totalRooms}</Text>
-                    </View>
+                    {isGuest ? (
+                      <Text className="font-semibold text-sm text-muted-foreground">•••</Text>
+                    ) : (
+                      <View className="flex-row items-center gap-2">
+                        <MaterialSymbolsSensorDoorOutline
+                          width={20}
+                          height={20}
+                          color={iconColor}
+                        />
+                        <Text className="font-bold text-lg text-foreground">{kos.totalRooms}</Text>
+                      </View>
+                    )}
                   </View>
 
                   <View className="flex-1 flex-col gap-1 rounded-lg border border-primary/20 bg-primary/5 p-3">
                     <Text className="font-extrabold text-xs uppercase tracking-wider text-primary">
                       Tersedia
                     </Text>
-                    <View className="flex-row items-center gap-2">
-                      <MaterialSymbolsBedIcon width={20} height={20} color={iconColor} />
-                      <Text className="font-bold text-lg text-foreground">
-                        {kos.availableRooms}{' '}
-                        <Text className="text-xs font-normal text-muted-foreground">Kamar</Text>
-                      </Text>
-                    </View>
+                    {isGuest ? (
+                      <Text className="font-semibold text-sm text-muted-foreground">•••</Text>
+                    ) : (
+                      <View className="flex-row items-center gap-2">
+                        <MaterialSymbolsBedIcon width={20} height={20} color={iconColor} />
+                        <Text className="font-bold text-lg text-foreground">
+                          {kos.availableRooms}{' '}
+                          <Text className="text-xs font-normal text-muted-foreground">Kamar</Text>
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
 
@@ -471,35 +561,43 @@ export function KosDetailSheet({ kos, onClose, visible }: KosDetailSheetProps) {
                     <Text className="w-full font-semibold text-base text-foreground">
                       Fasilitas Kamar
                     </Text>
-                    <View
-                      className="flex-row flex-wrap"
-                      style={{ gap: 16, justifyContent: 'flex-start' }}>
-                      {kos.facilities
-                        .filter((f) => f in ROOM_FACILITIES)
-                        .map((facility, index) => {
-                          const facilityData =
-                            ROOM_FACILITIES[facility as keyof typeof ROOM_FACILITIES];
-                          return (
-                            <View
-                              key={index}
-                              className="flex-col items-center"
-                              style={{ width: (width - 10) / 5 }}>
-                              <View className="mb-2 h-10 w-10 items-center justify-center rounded-full bg-muted">
-                                <FacilityIcon
-                                  iconName={facilityData.icon}
-                                  size={20}
-                                  color={mutedColor}
-                                />
+                    {isGuest ? (
+                      <View className="w-full items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-8">
+                        <Text className="text-sm text-muted-foreground">
+                          Masuk untuk melihat fasilitas
+                        </Text>
+                      </View>
+                    ) : (
+                      <View
+                        className="flex-row flex-wrap"
+                        style={{ gap: 16, justifyContent: 'flex-start' }}>
+                        {kos.facilities
+                          .filter((f) => f in ROOM_FACILITIES)
+                          .map((facility, index) => {
+                            const facilityData =
+                              ROOM_FACILITIES[facility as keyof typeof ROOM_FACILITIES];
+                            return (
+                              <View
+                                key={index}
+                                className="flex-col items-center"
+                                style={{ width: (width - 10) / 5 }}>
+                                <View className="mb-2 h-10 w-10 items-center justify-center rounded-full bg-muted">
+                                  <FacilityIcon
+                                    iconName={facilityData.icon}
+                                    size={20}
+                                    color={mutedColor}
+                                  />
+                                </View>
+                                <Text
+                                  className="text-center font-medium text-xs text-muted-foreground"
+                                  numberOfLines={2}>
+                                  {facilityData.label}
+                                </Text>
                               </View>
-                              <Text
-                                className="text-center font-medium text-xs text-muted-foreground"
-                                numberOfLines={2}>
-                                {facilityData.label}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                    </View>
+                            );
+                          })}
+                      </View>
+                    )}
                   </View>
                 )}
 
@@ -512,35 +610,43 @@ export function KosDetailSheet({ kos, onClose, visible }: KosDetailSheetProps) {
                     <Text className="w-full font-semibold text-base text-foreground">
                       Fasilitas Umum
                     </Text>
-                    <View
-                      className="flex-row flex-wrap"
-                      style={{ gap: 16, justifyContent: 'flex-start' }}>
-                      {kos.facilities
-                        .filter((f) => f in COMMON_FACILITIES)
-                        .map((facility, index) => {
-                          const facilityData =
-                            COMMON_FACILITIES[facility as keyof typeof COMMON_FACILITIES];
-                          return (
-                            <View
-                              key={index}
-                              className="flex-col items-center"
-                              style={{ width: (width - 10) / 5 }}>
-                              <View className="mb-2 h-10 w-10 items-center justify-center rounded-full bg-muted">
-                                <FacilityIcon
-                                  iconName={facilityData.icon}
-                                  size={20}
-                                  color={mutedColor}
-                                />
+                    {isGuest ? (
+                      <View className="w-full items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-8">
+                        <Text className="text-sm text-muted-foreground">
+                          Masuk untuk melihat fasilitas
+                        </Text>
+                      </View>
+                    ) : (
+                      <View
+                        className="flex-row flex-wrap"
+                        style={{ gap: 16, justifyContent: 'flex-start' }}>
+                        {kos.facilities
+                          .filter((f) => f in COMMON_FACILITIES)
+                          .map((facility, index) => {
+                            const facilityData =
+                              COMMON_FACILITIES[facility as keyof typeof COMMON_FACILITIES];
+                            return (
+                              <View
+                                key={index}
+                                className="flex-col items-center"
+                                style={{ width: (width - 10) / 5 }}>
+                                <View className="mb-2 h-10 w-10 items-center justify-center rounded-full bg-muted">
+                                  <FacilityIcon
+                                    iconName={facilityData.icon}
+                                    size={20}
+                                    color={mutedColor}
+                                  />
+                                </View>
+                                <Text
+                                  className="text-center font-medium text-xs text-muted-foreground"
+                                  numberOfLines={2}>
+                                  {facilityData.label}
+                                </Text>
                               </View>
-                              <Text
-                                className="text-center font-medium text-xs text-muted-foreground"
-                                numberOfLines={2}>
-                                {facilityData.label}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                    </View>
+                            );
+                          })}
+                      </View>
+                    )}
                   </View>
                 )}
 
@@ -593,25 +699,15 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     zIndex: 101,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 10,
   },
   handleContainer: {
     zIndex: 10,
     borderWidth: 0,
-  },
-  typeBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  priceCard: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
   },
 });
 

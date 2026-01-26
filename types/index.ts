@@ -11,7 +11,7 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
-  phone?: string;
+  savedKos?: string[]; // Array of saved kos IDs
   createdAt: Timestamp;
 }
 
@@ -19,6 +19,7 @@ export interface Kos {
   id: string;
   ownerId: string;
   ownerName?: string;
+  ownerPhone?: string; // Nomor WhatsApp pemilik (format: 628xxx tanpa +)
   name: string;
   address: string;
   location: GeoPoint;

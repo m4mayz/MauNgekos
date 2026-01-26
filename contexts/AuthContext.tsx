@@ -9,19 +9,14 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User, UserRole } from '@/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (
-    email: string,
-    password: string,
-    name: string,
-    role: UserRole,
-    phone?: string
-  ) => Promise<void>;
+  signUp: (email: string, password: string, name: string, role: UserRole) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -56,13 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   };
 
-  const signUp = async (
-    email: string,
-    password: string,
-    name: string,
-    role: UserRole,
-    phone?: string
-  ) => {
+  const signUp = async (email: string, password: string, name: string, role: UserRole) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
     // Create user document in Firestore
@@ -70,12 +59,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       name,
       role,
-      phone: phone || null,
       createdAt: serverTimestamp(),
     });
   };
 
   const signOut = async () => {
+    // Clear local cache before signing out
+    if (user) {
+      const cacheKey = `savedKos_${user.id}`;
+      await AsyncStorage.removeItem(cacheKey);
+      console.log('[AuthContext] Cleared cache for user:', user.id);
+    }
+
     await firebaseSignOut(auth);
     setUser(null);
   };

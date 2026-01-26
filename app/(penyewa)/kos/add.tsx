@@ -201,6 +201,7 @@ export default function AddKosScreen() {
 
   // Form state
   const [name, setName] = useState('');
+  const [ownerPhone, setOwnerPhone] = useState('');
   const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<KosType>('campur');
@@ -314,6 +315,16 @@ export default function AddKosScreen() {
       Alert.alert('Error', 'Nama kos harus diisi');
       return false;
     }
+    if (!ownerPhone.trim()) {
+      Alert.alert('Error', 'Nomor WhatsApp harus diisi');
+      return false;
+    }
+    // Validate phone format
+    const phoneDigits = ownerPhone.replace(/\D/g, '');
+    if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+      Alert.alert('Error', 'Format nomor WhatsApp tidak valid (10-15 digit)');
+      return false;
+    }
     if (!address.trim()) {
       Alert.alert('Error', 'Alamat harus diisi');
       return false;
@@ -353,6 +364,7 @@ export default function AddKosScreen() {
       await createKos({
         ownerId: user.id,
         ownerName: user.name,
+        ownerPhone: ownerPhone.trim(),
         name: name.trim(),
         address: address.trim(),
         description: description.trim() || undefined,
@@ -433,6 +445,24 @@ export default function AddKosScreen() {
               leftIcon={<Home size={20} color={mutedColor} />}
               aria-labelledby="name"
             />
+          </View>
+
+          {/* Owner Phone */}
+          <View className="gap-2">
+            <Label nativeID="ownerPhone">
+              Nomor WhatsApp <Text className="text-destructive">*</Text>
+            </Label>
+            <Input
+              placeholder="08xxxxxxxxxx atau 628xxxxxxxxxx"
+              value={ownerPhone}
+              onChangeText={setOwnerPhone}
+              keyboardType="phone-pad"
+              leftIcon={<MaterialIcons name="whatsapp" size={20} color={mutedColor} />}
+              aria-labelledby="ownerPhone"
+            />
+            <Text className="text-xs text-muted-foreground">
+              Format: 08xxx atau 628xxx (akan digunakan untuk tombol WhatsApp)
+            </Text>
           </View>
 
           {/* Address */}
