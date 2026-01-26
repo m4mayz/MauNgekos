@@ -27,7 +27,7 @@ const STATUS_COLORS: Record<KosStatus, string> = {
 };
 
 const STATUS_LABELS: Record<KosStatus, string> = {
-  pending: 'Menunggu',
+  pending: 'Menunggu diverifikasi',
   approved: 'Disetujui',
   rejected: 'Ditolak',
 };
@@ -63,6 +63,21 @@ export default function DashboardScreen() {
   const handleRefresh = () => {
     setRefreshing(true);
     loadKos();
+  };
+
+  const handleAddKos = () => {
+    if (kosList.length >= 1) {
+      Alert.alert(
+        'Upgrade ke Premium',
+        'Anda hanya bisa menambahkan 1 kos di versi gratis. Upgrade ke Premium untuk menambah lebih banyak kos!',
+        [
+          { text: 'Nanti', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => console.log('TODO: Navigate to premium page') },
+        ]
+      );
+      return;
+    }
+    router.push('/(penyewa)/kos/add');
   };
 
   const handleDelete = (kos: Kos) => {
@@ -182,7 +197,7 @@ export default function DashboardScreen() {
       <Text className="mb-6 text-center text-muted-foreground">
         Tambahkan kos pertamamu dan mulai{'\n'}promosikan ke pencari kos
       </Text>
-      <Button onPress={() => router.push('/(penyewa)/kos/add')}>
+      <Button onPress={handleAddKos}>
         <Plus size={20} color={colorScheme === 'dark' ? 'hsl(0 0% 3.9%)' : '#fff'} />
         <Text className="ml-2 font-semibold text-primary-foreground">Tambah Kos</Text>
       </Button>
@@ -251,17 +266,34 @@ export default function DashboardScreen() {
             paddingHorizontal: 16,
             flexGrow: 1,
           }}
+          ListFooterComponent={
+            kosList.length > 0 ? (
+              <View className="mb-4 mt-4">
+                <Button
+                  onPress={handleAddKos}
+                  variant={kosList.length >= 1 ? 'outline' : 'default'}
+                  size="lg"
+                  disabled={kosList.length >= 1}>
+                  <Plus size={20} color={kosList.length >= 1 ? '#666' : '#fff'} />
+                  <Text
+                    className={
+                      kosList.length >= 1
+                        ? 'ml-2 text-muted-foreground'
+                        : 'ml-2 text-primary-foreground'
+                    }>
+                    {kosList.length >= 1 ? 'Tambah Kos (Premium)' : 'Tambah Kos'}
+                  </Text>
+                </Button>
+                {kosList.length >= 1 && (
+                  <Text className="mt-2 text-center text-xs text-muted-foreground">
+                    💎 Upgrade ke Premium untuk menambah lebih banyak kos
+                  </Text>
+                )}
+              </View>
+            ) : null
+          }
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         />
-      )}
-
-      {/* FAB */}
-      {kosList.length > 0 && (
-        <Button
-          className="absolute bottom-6 right-6 h-14 w-14 rounded-2xl shadow-lg shadow-black"
-          onPress={() => router.push('/(penyewa)/kos/add')}>
-          <Plus size={24} color="#fff" />
-        </Button>
       )}
     </View>
   );

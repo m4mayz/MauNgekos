@@ -20,7 +20,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { KosType, ROOM_FACILITIES, COMMON_FACILITIES } from '@/types';
+import {
+  KosType,
+  ROOM_FACILITIES,
+  COMMON_FACILITIES,
+  ROOM_FACILITY_KEYS,
+  COMMON_FACILITY_KEYS,
+} from '@/types';
 import { createKos, createGeoPoint } from '@/services/kosService';
 import { uploadImage } from '@/lib/supabase';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -557,11 +563,11 @@ export default function AddKosScreen() {
               </TabsList>
               <TabsContent value="room" className="gap-3 pt-3">
                 <View className="flex-row flex-wrap gap-2">
-                  {ROOM_FACILITIES.map((facility) => (
+                  {ROOM_FACILITY_KEYS.map((facility) => (
                     <Pressable
                       key={facility}
                       onPress={() => toggleFacility(facility)}
-                      className={`shrink-0 flex-row items-center gap-2 rounded-lg border px-3 py-2 ${
+                      className={`flex-row items-center gap-2 rounded-lg border px-3 py-2 ${
                         selectedFacilities.includes(facility)
                           ? 'border-primary bg-primary/5'
                           : 'border-border'
@@ -576,9 +582,8 @@ export default function AddKosScreen() {
                           <Check size={12} color="#fff" strokeWidth={3} />
                         )}
                       </View>
-                      <Text
-                        className={`shrink-0 leading-normal ${selectedFacilities.includes(facility) ? 'text-primary' : ''}`}>
-                        {facility.replace(/ /g, '\u00A0')}
+                      <Text className={selectedFacilities.includes(facility) ? 'text-primary' : ''}>
+                        {ROOM_FACILITIES[facility].label}
                       </Text>
                     </Pressable>
                   ))}
@@ -586,11 +591,11 @@ export default function AddKosScreen() {
               </TabsContent>
               <TabsContent value="common" className="gap-3 pt-3">
                 <View className="flex-row flex-wrap gap-2">
-                  {COMMON_FACILITIES.map((facility) => (
+                  {COMMON_FACILITY_KEYS.map((facility) => (
                     <Pressable
                       key={facility}
                       onPress={() => toggleFacility(facility)}
-                      className={`shrink-0 flex-row items-center gap-2 rounded-lg border px-3 py-2 ${
+                      className={`flex-row items-center gap-2 rounded-lg border px-3 py-2 ${
                         selectedFacilities.includes(facility)
                           ? 'border-primary bg-primary/5'
                           : 'border-border'
@@ -605,9 +610,8 @@ export default function AddKosScreen() {
                           <Check size={12} color="#fff" strokeWidth={3} />
                         )}
                       </View>
-                      <Text
-                        className={`shrink-0 leading-normal ${selectedFacilities.includes(facility) ? 'text-primary' : ''}`}>
-                        {facility.replace(/ /g, '\u00A0')}
+                      <Text className={selectedFacilities.includes(facility) ? 'text-primary' : ''}>
+                        {COMMON_FACILITIES[facility].label}
                       </Text>
                     </Pressable>
                   ))}

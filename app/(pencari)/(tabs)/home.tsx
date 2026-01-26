@@ -13,19 +13,26 @@ import {
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuth } from '@/contexts/AuthContext';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Kos, KosFilter, KosType, ROOM_FACILITIES, COMMON_FACILITIES } from '@/types';
+import {
+  Kos,
+  KosFilter,
+  KosType,
+  ROOM_FACILITIES,
+  COMMON_FACILITIES,
+  ROOM_FACILITY_KEYS,
+  COMMON_FACILITY_KEYS,
+} from '@/types';
 import { getApprovedKos } from '@/services/kosService';
+import { KosDetailSheet } from '@/components/KosDetailSheet';
 import {
   Search,
   X,
-  LogIn,
   User,
-  MapPin,
   DollarSign,
   Home,
   Sparkles,
@@ -65,94 +72,159 @@ const KOS_TYPE_COLORS: Record<KosType, string> = {
   campur: '#10B981',
 };
 
-// Dark mode map style
+// Dark mode map style - Modern & Sleek
 const DARK_MAP_STYLE = [
+  // Base map styling
   {
     elementType: 'geometry',
-    stylers: [{ color: '#242f3e' }],
+    stylers: [{ color: '#1a1f2e' }], // Darker base for better contrast
   },
   {
     elementType: 'labels.text.stroke',
-    stylers: [{ color: '#242f3e' }],
+    stylers: [{ color: '#0d1117' }],
   },
   {
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#746855' }],
+    stylers: [{ color: '#8b92a5' }], // Softer label colors
   },
+  // Administrative areas
   {
     featureType: 'administrative.locality',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
+    stylers: [{ color: '#2dd4bf' }], // Teal accent for cities
+  },
+  {
+    featureType: 'administrative.neighborhood',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#7dd3fc' }], // Light blue for neighborhoods
+  },
+  // Points of interest
+  {
+    featureType: 'poi',
+    elementType: 'geometry',
+    stylers: [{ color: '#252b3a' }],
   },
   {
     featureType: 'poi',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
+    stylers: [{ color: '#6b7280' }],
+  },
+  {
+    featureType: 'poi.business',
+    stylers: [{ visibility: 'off' }], // Hide business POIs for cleaner look
   },
   {
     featureType: 'poi.park',
     elementType: 'geometry',
-    stylers: [{ color: '#263c3f' }],
+    stylers: [{ color: '#1e3a2f' }], // Darker green for parks
   },
   {
     featureType: 'poi.park',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#6b9a76' }],
+    stylers: [{ color: '#4ade80' }], // Bright green labels
   },
+  // Roads
   {
     featureType: 'road',
     elementType: 'geometry',
-    stylers: [{ color: '#38414e' }],
+    stylers: [{ color: '#2d3748' }], // Lighter roads for visibility
   },
   {
     featureType: 'road',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#212a37' }],
+    stylers: [{ color: '#1a202c' }],
   },
   {
     featureType: 'road',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#9ca5b3' }],
+    stylers: [{ color: '#94a3b8' }],
   },
+  {
+    featureType: 'road',
+    elementType: 'labels.icon',
+    stylers: [{ visibility: 'off' }], // Hide road icons for cleaner look
+  },
+  // Highways - Make them stand out
   {
     featureType: 'road.highway',
     elementType: 'geometry',
-    stylers: [{ color: '#746855' }],
+    stylers: [{ color: '#475569' }], // Lighter highway
   },
   {
     featureType: 'road.highway',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#1f2835' }],
+    stylers: [{ color: '#1e293b' }],
   },
   {
     featureType: 'road.highway',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#f3d19c' }],
+    stylers: [{ color: '#e2e8f0' }], // Bright labels
   },
+  // Arterial roads
+  {
+    featureType: 'road.arterial',
+    elementType: 'geometry',
+    stylers: [{ color: '#334155' }],
+  },
+  {
+    featureType: 'road.arterial',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#94a3b8' }],
+  },
+  // Local roads
+  {
+    featureType: 'road.local',
+    elementType: 'geometry',
+    stylers: [{ color: '#252b3a' }],
+  },
+  {
+    featureType: 'road.local',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#64748b' }],
+  },
+  // Transit
   {
     featureType: 'transit',
     elementType: 'geometry',
-    stylers: [{ color: '#2f3948' }],
+    stylers: [{ color: '#1e293b' }],
   },
   {
     featureType: 'transit.station',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
+    stylers: [{ color: '#fbbf24' }], // Yellow for transit stations
   },
+  // Water - Make it stand out with teal
   {
     featureType: 'water',
     elementType: 'geometry',
-    stylers: [{ color: '#17263c' }],
+    stylers: [{ color: '#0f172a' }], // Deep dark water
   },
   {
     featureType: 'water',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#515c6d' }],
+    stylers: [{ color: '#60a5fa' }], // Blue labels
   },
   {
     featureType: 'water',
     elementType: 'labels.text.stroke',
-    stylers: [{ color: '#17263c' }],
+    stylers: [{ color: '#0f172a' }],
+  },
+  // Landscape
+  {
+    featureType: 'landscape',
+    elementType: 'geometry',
+    stylers: [{ color: '#1a1f2e' }],
+  },
+  {
+    featureType: 'landscape.natural',
+    elementType: 'geometry',
+    stylers: [{ color: '#1e2433' }],
+  },
+  // Buildings - subtle presence
+  {
+    featureType: 'poi.attraction',
+    elementType: 'geometry',
+    stylers: [{ color: '#2d3748' }],
   },
 ];
 
@@ -168,6 +240,7 @@ export default function HomeScreen() {
   const [filters, setFilters] = useState<KosFilter>({});
   const [loading, setLoading] = useState(true);
   const [isLocating, setIsLocating] = useState(false);
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   // Separate state for dialog-based filters
   const [tempPriceMin, setTempPriceMin] = useState('');
@@ -255,6 +328,12 @@ export default function HomeScreen() {
 
   const handleMarkerPress = (kos: Kos) => {
     setSelectedKos(kos);
+    setSheetVisible(true);
+  };
+
+  const handleSheetClose = () => {
+    setSheetVisible(false);
+    setSelectedKos(null);
   };
 
   const goToUserLocation = async () => {
@@ -320,7 +399,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <GestureHandlerRootView style={styles.container}>
       {/* Map */}
       <MapView
         ref={mapRef}
@@ -329,6 +408,8 @@ export default function HomeScreen() {
         initialRegion={region}
         showsUserLocation
         showsMyLocationButton={false}
+        toolbarEnabled={false}
+        showsCompass={false}
         customMapStyle={colorScheme === 'dark' ? DARK_MAP_STYLE : []}
         onPress={() => setSelectedKos(null)}>
         {filteredKos.map((kos) => (
@@ -339,8 +420,21 @@ export default function HomeScreen() {
               longitude: kos.location.longitude,
             }}
             onPress={() => handleMarkerPress(kos)}>
-            <View style={[styles.markerContainer, { backgroundColor: KOS_TYPE_COLORS[kos.type] }]}>
-              <MapPin size={16} color="#fff" />
+            <View className="items-center">
+              <View
+                style={[styles.markerContainer, { backgroundColor: KOS_TYPE_COLORS[kos.type] }]}>
+                <Home size={14} color="#fff" />
+              </View>
+              <View
+                style={{
+                  width: 10,
+                  height: 10,
+                  backgroundColor: '#fff',
+                  transform: [{ rotate: '45deg' }],
+                  borderBottomRightRadius: 3,
+                  marginTop: -7,
+                }}
+              />
             </View>
           </Marker>
         ))}
@@ -572,7 +666,7 @@ export default function HomeScreen() {
                   <TabsContent value="room" className="gap-3 pt-3">
                     <ScrollView style={{ maxHeight: 300 }}>
                       <View className="gap-3">
-                        {ROOM_FACILITIES.map((facility) => (
+                        {ROOM_FACILITY_KEYS.map((facility) => (
                           <Pressable
                             key={facility}
                             onPress={() => {
@@ -591,7 +685,7 @@ export default function HomeScreen() {
                                 );
                               }}
                             />
-                            <Label>{facility}</Label>
+                            <Label>{ROOM_FACILITIES[facility].label}</Label>
                           </Pressable>
                         ))}
                       </View>
@@ -600,7 +694,7 @@ export default function HomeScreen() {
                   <TabsContent value="common" className="gap-3 pt-3">
                     <ScrollView style={{ maxHeight: 300 }}>
                       <View className="gap-3">
-                        {COMMON_FACILITIES.map((facility) => (
+                        {COMMON_FACILITY_KEYS.map((facility) => (
                           <Pressable
                             key={facility}
                             onPress={() => {
@@ -619,7 +713,7 @@ export default function HomeScreen() {
                                 );
                               }}
                             />
-                            <Label>{facility}</Label>
+                            <Label>{COMMON_FACILITIES[facility].label}</Label>
                           </Pressable>
                         ))}
                       </View>
@@ -677,67 +771,29 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
 
-        {/* My Location Button */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="absolute bottom-[20px] right-4 h-12 w-12 rounded-2xl border-0 bg-background shadow-lg shadow-black dark:bg-[#000]"
-          onPress={goToUserLocation}
-          disabled={isLocating}>
-          {isLocating ? (
-            <ActivityIndicator
-              size="small"
-              color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
-            />
-          ) : (
-            <Compass size={24} color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'} />
-          )}
-        </Button>
-
-        {/* Selected Kos Preview */}
-        {selectedKos && (
-          <Pressable
-            className="absolute bottom-24 left-4 right-4"
-            onPress={() => router.push(`/(pencari)/kos/${selectedKos.id}`)}>
-            <View className="rounded-xl bg-background p-4 shadow-lg">
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1">
-                  <View className="mb-1 flex-row items-center gap-2">
-                    <Badge
-                      style={{
-                        backgroundColor: KOS_TYPE_COLORS[selectedKos.type],
-                      }}>
-                      <Text className="text-xs capitalize text-white">{selectedKos.type}</Text>
-                    </Badge>
-                    {selectedKos.availableRooms > 0 && (
-                      <Badge variant="outline">
-                        <Text className="text-xs">{selectedKos.availableRooms} kamar tersedia</Text>
-                      </Badge>
-                    )}
-                  </View>
-                  <Text className="font-bold text-lg" numberOfLines={1}>
-                    {selectedKos.name}
-                  </Text>
-                  <Text className="text-sm text-muted-foreground" numberOfLines={1}>
-                    {selectedKos.address}
-                  </Text>
-                </View>
-                <Button variant="ghost" size="icon" onPress={() => setSelectedKos(null)}>
-                  <X size={20} color="hsl(0, 0%, 45%)" />
-                </Button>
-              </View>
-              <View className="mt-3 flex-row items-center justify-between">
-                <Text className="font-bold text-primary">
-                  {formatPrice(selectedKos.priceMin)} - {formatPrice(selectedKos.priceMax)}
-                  <Text className="font-normal text-muted-foreground">/bulan</Text>
-                </Text>
-                <Text className="text-sm text-primary">Lihat Detail →</Text>
-              </View>
-            </View>
-          </Pressable>
+        {/* My Location Button - Hidden when sheet is visible */}
+        {!sheetVisible && (
+          <Button
+            variant="outline"
+            size="icon"
+            className="absolute bottom-[20px] right-4 h-12 w-12 rounded-2xl border-0 bg-background shadow-lg shadow-black dark:bg-[#000]"
+            onPress={goToUserLocation}
+            disabled={isLocating}>
+            {isLocating ? (
+              <ActivityIndicator
+                size="small"
+                color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
+              />
+            ) : (
+              <Compass size={24} color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'} />
+            )}
+          </Button>
         )}
       </SafeAreaView>
-    </View>
+
+      {/* Kos Detail Bottom Sheet */}
+      <KosDetailSheet kos={selectedKos} visible={sheetVisible} onClose={handleSheetClose} />
+    </GestureHandlerRootView>
   );
 }
 
@@ -758,9 +814,9 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none',
   },
   markerContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,

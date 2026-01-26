@@ -159,6 +159,7 @@ router.replace('/(auth)/login'); // Replace (no back)
 - **Image picker**: Always check `result.canceled` before accessing `result.assets[0]`
 - **TypeScript**: Strict mode enabled - null checks required for optional fields
 - **Expo Router**: Use typed routes when available (`href={...}` not string-only)
+- Hindari penggunaan komentar dalam kode yang berlebihan; gunakan nama variabel dan fungsi yang jelas untuk meningkatkan keterbacaan kode.
 
 ## Testing & Debugging
 

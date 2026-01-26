@@ -14,12 +14,6 @@ export default function AdminLayout() {
         }}
       />
       <Stack.Screen
-        name="kos/[id]"
-        options={{
-          title: 'Detail Kos',
-        }}
-      />
-      <Stack.Screen
         name="profile"
         options={{
           title: 'Profil Admin',

@@ -20,7 +20,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Kos, KosType, ROOM_FACILITIES, COMMON_FACILITIES } from '@/types';
+import {
+  Kos,
+  KosType,
+  ROOM_FACILITIES,
+  COMMON_FACILITIES,
+  ROOM_FACILITY_KEYS,
+  COMMON_FACILITY_KEYS,
+} from '@/types';
 import { getKosById, updateKos, createGeoPoint } from '@/services/kosService';
 import { uploadImage, deleteImage } from '@/lib/supabase';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -584,7 +591,7 @@ export default function EditKosScreen() {
               </TabsList>
               <TabsContent value="room" className="gap-3 pt-3">
                 <View className="flex-row flex-wrap gap-2">
-                  {ROOM_FACILITIES.map((facility) => (
+                  {ROOM_FACILITY_KEYS.map((facility) => (
                     <Pressable
                       key={facility}
                       onPress={() => toggleFacility(facility)}
@@ -605,7 +612,7 @@ export default function EditKosScreen() {
                       </View>
                       <Text
                         className={`shrink-0 leading-normal ${selectedFacilities.includes(facility) ? 'text-primary' : ''}`}>
-                        {facility.replace(/ /g, '\u00A0')}
+                        {ROOM_FACILITIES[facility].label.replace(/ /g, '\u00A0')}
                       </Text>
                     </Pressable>
                   ))}
@@ -613,7 +620,7 @@ export default function EditKosScreen() {
               </TabsContent>
               <TabsContent value="common" className="gap-3 pt-3">
                 <View className="flex-row flex-wrap gap-2">
-                  {COMMON_FACILITIES.map((facility) => (
+                  {COMMON_FACILITY_KEYS.map((facility) => (
                     <Pressable
                       key={facility}
                       onPress={() => toggleFacility(facility)}
@@ -634,7 +641,7 @@ export default function EditKosScreen() {
                       </View>
                       <Text
                         className={`shrink-0 leading-normal ${selectedFacilities.includes(facility) ? 'text-primary' : ''}`}>
-                        {facility.replace(/ /g, '\u00A0')}
+                        {COMMON_FACILITIES[facility].label.replace(/ /g, '\u00A0')}
                       </Text>
                     </Pressable>
                   ))}

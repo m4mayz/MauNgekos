@@ -1,0 +1,287 @@
+<!doctype html>
+
+<html class="light" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Kos Detail - Minimalist Utility</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet" />
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: '#11a4d4',
+              'background-light': '#ffffff',
+              'background-dark': '#101d22',
+              'neutral-50': '#f8fafa',
+              'neutral-100': '#f1f5f9',
+              'neutral-200': '#e2e8f0',
+              'neutral-800': '#1e293b',
+              'neutral-900': '#0f172a',
+            },
+            fontFamily: {
+              display: ['Inter', 'sans-serif'],
+            },
+            borderRadius: { DEFAULT: '0.25rem', lg: '0.5rem', xl: '0.75rem', full: '9999px' },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+    <style>
+      body {
+        min-height: max(884px, 100dvh);
+      }
+    </style>
+  </head>
+  <body
+    class="bg-background-light dark:bg-background-dark text-neutral-900 antialiased selection:bg-primary selection:text-white dark:text-neutral-50">
+    <div
+      class="bg-background-light dark:bg-background-dark relative mx-auto flex h-full min-h-screen w-full max-w-md flex-col overflow-x-hidden pb-24 shadow-xl">
+      <!-- Header / Top Bar -->
+      <div
+        class="bg-background-light/80 dark:bg-background-dark/80 sticky top-0 z-20 flex items-center justify-between px-4 py-3 backdrop-blur-md">
+        <button
+          class="flex size-10 items-center justify-center rounded-full text-neutral-900 hover:bg-neutral-100 dark:text-white dark:hover:bg-neutral-800">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h2 class="font-semibold text-sm tracking-tight text-neutral-900 dark:text-white">
+          Detail Property
+        </h2>
+        <button
+          class="flex size-10 items-center justify-center rounded-full text-neutral-900 hover:bg-neutral-100 dark:text-white dark:hover:bg-neutral-800">
+          <span class="material-symbols-outlined">ios_share</span>
+        </button>
+      </div>
+      <!-- Image Carousel -->
+      <div class="relative w-full overflow-hidden">
+        <div class="hide-scrollbar flex snap-x snap-mandatory overflow-x-auto pb-4">
+          <!-- Image 1 -->
+          <div class="w-full shrink-0 snap-center px-4">
+            <div
+              class="aspect-[4/3] w-full overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800">
+              <div
+                class="h-full w-full bg-cover bg-center transition-transform duration-500 hover:scale-105"
+                data-alt="Modern bright bedroom interior with white walls"
+                style="
+                  background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuASXEGGOqycfwYTrL0kZ3X4NVeC8c6GUe7q5uWMyuxJbDhh9l7wISlvGSR_I7MjZuDpDTVCwf1q91p_ejNQh-Dx0-XsXZWol_i880w4gFSXUMhAApgdGAy18awGI9n-usxKrqTqWrfYfb8GfoVE61dtDgNnbN3k7DKSeqvm8uwU89qdnVsy7rC1v4wFapgAsjKMq1drL_emhKrmF1GHxAEciu9JA1_1tvz6tE_UnXgmLYyqP-Qgm8gdUnMjgYO2EnlF-z1JmuK4x80');
+                "></div>
+            </div>
+          </div>
+          <!-- Image 2 -->
+          <div class="w-full shrink-0 snap-center px-4">
+            <div
+              class="aspect-[4/3] w-full overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800">
+              <div
+                class="h-full w-full bg-cover bg-center transition-transform duration-500 hover:scale-105"
+                data-alt="Cozy living area with soft lighting"
+                style="
+                  background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCwEJWNSV-9VTj3sFTWWiChMsyhDyWK6zfDg5Vp3xR34x283IvQgjB9zmPCJuyI0Vvq8jIealcO3MDVIxHDGn2e2jX8WstjEy4Abn0JpK10jZP2Ry24mCqZ_VSLZ-u7uOEgtV9rLta5msv8DzCDJWayf5MU7w6o9y8jZ1A4fd4ybEXP-l1Vy_fgevmn-2yBN_qX-OFy4L_0MLC-4oahJAtENILt3eSMzHjD5DaN_CSgtXwaIf4kbBDP6_aWvarKgZIG8-IO4Nv1nlI');
+                "></div>
+            </div>
+          </div>
+          <!-- Image 3 -->
+          <div class="w-full shrink-0 snap-center px-4">
+            <div
+              class="aspect-[4/3] w-full overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800">
+              <div
+                class="h-full w-full bg-cover bg-center transition-transform duration-500 hover:scale-105"
+                data-alt="Clean modern bathroom with glass shower"
+                style="
+                  background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDZvaY9NwuTz6mSODqf1BoSWlZjfdzpHBjq6mfI_Wh8Jt9DulDdO4gUXEE1DzJfzL3mpOwWe9Q29tgS__Nx9FyoJ9BXD2in1_tCzeSdcYFILf8NB-QTs2e9_qd-zpT6IsPIKAGJ9_rbgjmjBjWaEIK0wr15IE5zbTuhwzTXG65ZPhA75qki6H0vkgUgMutLUzSEoJCdaNeZTX9bspLrF8gKI0lljL8OmG2NvlL5iXxDy9_xQNGhnTmyf0j1cUlPPFdoEMIXpaxsg-U');
+                "></div>
+            </div>
+          </div>
+        </div>
+        <!-- Carousel Dots -->
+        <div class="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-1.5">
+          <div class="h-1.5 w-1.5 rounded-full bg-white shadow-sm"></div>
+          <div class="h-1.5 w-1.5 rounded-full bg-white/50 shadow-sm"></div>
+          <div class="h-1.5 w-1.5 rounded-full bg-white/50 shadow-sm"></div>
+        </div>
+      </div>
+      <!-- Main Content Area -->
+      <div class="flex flex-col gap-6 px-5 pt-2">
+        <!-- Title & Price Block -->
+        <div class="flex flex-col gap-1">
+          <div class="flex items-start justify-between gap-4">
+            <h1
+              class="font-bold text-xl leading-tight tracking-tight text-neutral-900 dark:text-white">
+              Kost Putri Melati Indah
+            </h1>
+            <div class="flex shrink-0 flex-col items-end">
+              <span class="font-bold text-lg text-primary">Rp 1.5jt</span>
+              <span class="font-medium text-xs text-neutral-500 dark:text-neutral-400"
+                >/ month</span
+              >
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
+            <span class="material-symbols-outlined text-[18px]">location_on</span>
+            <p class="truncate font-medium text-sm">Jl. Kebon Jeruk No. 12, Jakarta Barat</p>
+          </div>
+        </div>
+        <!-- Stats Grid (Minimalist) -->
+        <div class="grid grid-cols-2 gap-3">
+          <div
+            class="flex flex-col gap-1 rounded-lg border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
+            <span class="font-medium text-xs uppercase tracking-wider text-neutral-500"
+              >Total Rooms</span
+            >
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px] text-primary">meeting_room</span>
+              <span class="font-bold text-lg text-neutral-900 dark:text-white">10</span>
+            </div>
+          </div>
+          <div
+            class="flex flex-col gap-1 rounded-lg border border-primary/20 bg-primary/5 p-3 dark:border-primary/20 dark:bg-primary/10">
+            <span class="font-medium text-xs uppercase tracking-wider text-primary">Available</span>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px] text-primary">check_circle</span>
+              <span class="font-bold text-lg text-neutral-900 dark:text-white"
+                >2
+                <span class="ml-1 text-xs font-normal text-neutral-500 dark:text-neutral-400"
+                  >Rooms</span
+                ></span
+              >
+            </div>
+          </div>
+        </div>
+        <hr class="border-neutral-100 dark:border-neutral-800" />
+        <!-- Facilities (Clean Grid) -->
+        <div class="flex flex-col gap-3">
+          <h3 class="font-semibold text-base text-neutral-900 dark:text-white">Facilities</h3>
+          <div class="grid grid-cols-4 gap-x-2 gap-y-6">
+            <!-- Wifi -->
+            <div class="group flex flex-col items-center gap-2 text-center">
+              <div
+                class="flex size-10 items-center justify-center rounded-full bg-neutral-50 text-neutral-600 transition-colors group-hover:bg-primary/10 group-hover:text-primary dark:bg-neutral-800 dark:text-neutral-400">
+                <span class="material-symbols-outlined">wifi</span>
+              </div>
+              <span class="font-medium text-xs text-neutral-600 dark:text-neutral-300"
+                >Free WiFi</span
+              >
+            </div>
+            <!-- AC -->
+            <div class="group flex flex-col items-center gap-2 text-center">
+              <div
+                class="flex size-10 items-center justify-center rounded-full bg-neutral-50 text-neutral-600 transition-colors group-hover:bg-primary/10 group-hover:text-primary dark:bg-neutral-800 dark:text-neutral-400">
+                <span class="material-symbols-outlined">ac_unit</span>
+              </div>
+              <span class="font-medium text-xs text-neutral-600 dark:text-neutral-300">AC</span>
+            </div>
+            <!-- Bathroom -->
+            <div class="group flex flex-col items-center gap-2 text-center">
+              <div
+                class="flex size-10 items-center justify-center rounded-full bg-neutral-50 text-neutral-600 transition-colors group-hover:bg-primary/10 group-hover:text-primary dark:bg-neutral-800 dark:text-neutral-400">
+                <span class="material-symbols-outlined">bathtub</span>
+              </div>
+              <span class="font-medium text-xs text-neutral-600 dark:text-neutral-300"
+                >Inside Bath</span
+              >
+            </div>
+            <!-- Parking -->
+            <div class="group flex flex-col items-center gap-2 text-center">
+              <div
+                class="flex size-10 items-center justify-center rounded-full bg-neutral-50 text-neutral-600 transition-colors group-hover:bg-primary/10 group-hover:text-primary dark:bg-neutral-800 dark:text-neutral-400">
+                <span class="material-symbols-outlined">local_parking</span>
+              </div>
+              <span class="font-medium text-xs text-neutral-600 dark:text-neutral-300"
+                >Parking</span
+              >
+            </div>
+            <!-- Laundry -->
+            <div class="group flex flex-col items-center gap-2 text-center">
+              <div
+                class="flex size-10 items-center justify-center rounded-full bg-neutral-50 text-neutral-600 transition-colors group-hover:bg-primary/10 group-hover:text-primary dark:bg-neutral-800 dark:text-neutral-400">
+                <span class="material-symbols-outlined">local_laundry_service</span>
+              </div>
+              <span class="font-medium text-xs text-neutral-600 dark:text-neutral-300"
+                >Laundry</span
+              >
+            </div>
+            <!-- Kitchen -->
+            <div class="group flex flex-col items-center gap-2 text-center">
+              <div
+                class="flex size-10 items-center justify-center rounded-full bg-neutral-50 text-neutral-600 transition-colors group-hover:bg-primary/10 group-hover:text-primary dark:bg-neutral-800 dark:text-neutral-400">
+                <span class="material-symbols-outlined">kitchen</span>
+              </div>
+              <span class="font-medium text-xs text-neutral-600 dark:text-neutral-300"
+                >Kitchen</span
+              >
+            </div>
+          </div>
+        </div>
+        <hr class="border-neutral-100 dark:border-neutral-800" />
+        <!-- Description -->
+        <div class="flex flex-col gap-2">
+          <h3 class="font-semibold text-base text-neutral-900 dark:text-white">Description</h3>
+          <p class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
+            Clean, quiet environment perfect for students and young professionals. Located
+            strategically near universities and business districts. Includes weekly cleaning service
+            and 24/7 security.
+            <span class="ml-1 cursor-pointer font-medium text-primary">Read more</span>
+          </p>
+        </div>
+        <!-- Location Map -->
+        <div class="flex flex-col gap-3 pb-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-base text-neutral-900 dark:text-white">Location</h3>
+            <button class="font-medium text-xs text-primary hover:underline">Open in Maps</button>
+          </div>
+          <div
+            class="relative h-32 w-full overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-800">
+            <div
+              class="h-full w-full bg-cover bg-center opacity-80"
+              data-alt="Map view of Jakarta area"
+              data-location="Jakarta, Indonesia"
+              style="
+                background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBkcRXfqolUh7SEDjoMtf4G3DC8TSn1xJuJz-E-2sfqD_zG8HaoBhQEmhThHhHRIF_jOY9WLFqQhIPjaNvunVOAyk7LjwGZI_bIsLdbsIz8OD32Cb1kP-oT8cyAYQLWTj705Q1C401wVPb1k_HJXnuBn0S5vmvEBFH4aBOAShUewN_q_8ljfDUw_hI3e3MWPlyijKAD0N5OmglvxFd-squXWcJj65mCbMLtJvNRO5uh_7xYN_h73n-YAIRgLvLcOWCwpvBxgr0rut0');
+              "></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div
+                class="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-lg ring-4 ring-white/30">
+                <span class="material-symbols-outlined text-[20px]">map</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Sticky Bottom Action Bar -->
+      <div
+        class="dark:bg-background-dark/90 fixed bottom-0 left-0 right-0 z-30 mx-auto w-full max-w-md border-t border-neutral-100 bg-white/90 p-4 backdrop-blur-lg dark:border-neutral-800">
+        <div class="flex items-center gap-3">
+          <button
+            class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-transparent py-3 font-semibold text-sm text-neutral-700 transition hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800">
+            <span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+            Chat Owner
+          </button>
+          <button
+            class="flex flex-[2] items-center justify-center gap-2 rounded-lg bg-primary py-3 font-semibold text-sm text-white shadow-md shadow-primary/20 transition hover:bg-primary/90 active:scale-95">
+            Book Request
+          </button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

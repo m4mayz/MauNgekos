@@ -15,13 +15,6 @@ export default function PencariLayout() {
           },
         }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="kos/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: false,
-          }}
-        />
       </Stack>
       <PortalHost />
     </>

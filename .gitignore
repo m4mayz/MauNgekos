@@ -8,6 +8,16 @@ node_modules/
 dist/
 web-build/
 
+# agent skills
+.agent/
+.agents/
+.codex/
+.gemini/
+.github/
+
+# Monicon generated icons
+components/icons/
+
 # Native
 *.orig.*
 *.jks
@@ -15,6 +25,7 @@ web-build/
 *.p12
 *.key
 *.mobileprovision
+android/
 
 # Metro
 .metro-health-check*
