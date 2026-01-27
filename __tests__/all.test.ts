@@ -1,9 +1,3 @@
-/**
- * 🎯 USER FLOW TESTING SUITE
- * Tests mengikuti flow aplikasi dari user buka app sampai sync selesai
- * Sesuai dengan arsitektur SQLite + Firestore hybrid
- */
-
 import { initDatabase, clearDatabase, getDatabaseStats, getDatabase } from '@/lib/database';
 import * as sqliteService from '@/services/sqliteService';
 import * as syncService from '@/services/syncService';
@@ -37,9 +31,9 @@ const createMockKos = (id: string): Kos => ({
 });
 
 // ============================================
-// STEP 1: 📱 User Buka App
+// STEP 1: User Buka App
 // ============================================
-describe('📱 Step 1: User Buka App', () => {
+describe('Step 1: User Buka App', () => {
   it('✅ App dapat di-launch tanpa error', () => {
     // Test bahwa module-module penting bisa di-import
     expect(initDatabase).toBeDefined();
@@ -49,9 +43,9 @@ describe('📱 Step 1: User Buka App', () => {
 });
 
 // ============================================
-// STEP 2: 💾 SQLite Database Init
+// STEP 2: SQLite Database Init
 // ============================================
-describe('💾 Step 2: SQLite Database Initialization', () => {
+describe('Step 2: SQLite Database Initialization', () => {
   it('✅ Database dapat diinisialisasi', async () => {
     await initDatabase();
     const db = getDatabase();
@@ -82,9 +76,9 @@ describe('💾 Step 2: SQLite Database Initialization', () => {
 });
 
 // ============================================
-// STEP 3: 🔍 Network Status Check
+// STEP 3: Network Status Check
 // ============================================
-describe('🔍 Step 3: Check Network Status', () => {
+describe('Step 3: Check Network Status', () => {
   it('✅ Dapat mendeteksi status ONLINE', async () => {
     (NetInfo.fetch as jest.Mock).mockResolvedValue({ isConnected: true });
 
@@ -108,9 +102,9 @@ describe('🔍 Step 3: Check Network Status', () => {
 });
 
 // ============================================
-// STEP 4: ⏰ Sync Timing Check
+// STEP 4: Sync Timing Check
 // ============================================
-describe('⏰ Step 4: Check Last Sync Time', () => {
+describe('Step 4: Check Last Sync Time', () => {
   beforeAll(async () => {
     await initDatabase();
     await clearDatabase();
@@ -130,9 +124,9 @@ describe('⏰ Step 4: Check Last Sync Time', () => {
 });
 
 // ============================================
-// STEP 5: 📖 Read from SQLite
+// STEP 5: Read from SQLite
 // ============================================
-describe('📖 Step 5: Read Data from SQLite', () => {
+describe('Step 5: Read Data from SQLite', () => {
   beforeAll(async () => {
     await clearDatabase();
   });
@@ -183,9 +177,9 @@ describe('📖 Step 5: Read Data from SQLite', () => {
 });
 
 // ============================================
-// STEP 6: 👆 User Actions (Save/Unsave)
+// STEP 6: User Actions (Save/Unsave)
 // ============================================
-describe('👆 Step 6: User Actions - Save/Unsave Kos', () => {
+describe('Step 6: User Actions - Save/Unsave Kos', () => {
   beforeAll(async () => {
     await clearDatabase();
   });
@@ -230,9 +224,9 @@ describe('👆 Step 6: User Actions - Save/Unsave Kos', () => {
 });
 
 // ============================================
-// STEP 7: 🔄 Background Sync
+// STEP 7: Background Sync
 // ============================================
-describe('🔄 Step 7: Background Sync Process', () => {
+describe('Step 7: Background Sync Process', () => {
   beforeAll(async () => {
     await clearDatabase();
     (NetInfo.fetch as jest.Mock).mockResolvedValue({ isConnected: true });
@@ -264,9 +258,9 @@ describe('🔄 Step 7: Background Sync Process', () => {
 });
 
 // ============================================
-// STEP 8: 🧹 Database Cleanup
+// STEP 8: Database Cleanup
 // ============================================
-describe('🧹 Step 8: Database Cleanup', () => {
+describe('Step 8: Database Cleanup', () => {
   it('✅ clearDatabase() - Hapus semua data berhasil', async () => {
     // Insert some data
     const kos = createMockKos('kos-1');

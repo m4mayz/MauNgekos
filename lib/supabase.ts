@@ -2,10 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 
-// TODO: Replace with your Supabase config from Supabase Dashboard
-const supabaseUrl = 'https://uaxhnyyeagrokugdvjhm.supabase.co';
-const supabaseAnonKey =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVheGhueXllYWdyb2t1Z2R2amhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyODQzNjQsImV4cCI6MjA3Njg2MDM2NH0.2Fzn3mb5QA62Pcz1XtkIpxSiFOKVOKYwidq0b2OJk2s';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
