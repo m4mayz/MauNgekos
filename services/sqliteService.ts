@@ -17,42 +17,36 @@ export async function insertKos(kos: Kos): Promise<void> {
   const row = serializeKosForSQLite(kos);
 
   try {
-    const statement = await db.prepareAsync(`
-      INSERT OR REPLACE INTO kos (
+    await db.runAsync(
+      `INSERT OR REPLACE INTO kos (
         id, ownerId, ownerName, ownerPhone, name, address, 
         latitude, longitude, type, priceMin, priceMax,
         facilities, totalRooms, availableRooms,
-        images, description, contactPhone, contactWhatsapp,
-        status, createdAt, updatedAt, syncedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    await statement.executeAsync([
-      row.id,
-      row.ownerId,
-      row.ownerName,
-      row.ownerPhone,
-      row.name,
-      row.address,
-      row.latitude,
-      row.longitude,
-      row.type,
-      row.priceMin,
-      row.priceMax,
-      row.facilities,
-      row.totalRooms,
-      row.availableRooms,
-      row.images,
-      row.description,
-      row.contactPhone,
-      row.contactWhatsapp,
-      row.status,
-      row.createdAt,
-      row.updatedAt,
-      row.syncedAt,
-    ]);
-
-    await statement.finalizeAsync();
+        images, description, status, createdAt, updatedAt, syncedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        row.id,
+        row.ownerId,
+        row.ownerName,
+        row.ownerPhone,
+        row.name,
+        row.address,
+        row.latitude,
+        row.longitude,
+        row.type,
+        row.priceMin,
+        row.priceMax,
+        row.facilities,
+        row.totalRooms,
+        row.availableRooms,
+        row.images,
+        row.description,
+        row.status,
+        row.createdAt,
+        row.updatedAt,
+        row.syncedAt,
+      ]
+    );
   } catch (error) {
     console.error('Error inserting kos to SQLite:', error);
     throw error;
@@ -72,9 +66,8 @@ export async function insertManyKos(kosList: Kos[]): Promise<void> {
           id, ownerId, ownerName, ownerPhone, name, address, 
           latitude, longitude, type, priceMin, priceMax,
           facilities, totalRooms, availableRooms,
-          images, description, contactPhone, contactWhatsapp,
-          status, createdAt, updatedAt, syncedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          images, description, status, createdAt, updatedAt, syncedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       for (const kos of kosList) {
@@ -96,8 +89,6 @@ export async function insertManyKos(kosList: Kos[]): Promise<void> {
           row.availableRooms,
           row.images,
           row.description,
-          row.contactPhone,
-          row.contactWhatsapp,
           row.status,
           row.createdAt,
           row.updatedAt,

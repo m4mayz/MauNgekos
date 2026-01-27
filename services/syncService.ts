@@ -41,7 +41,7 @@ export async function shouldSync(): Promise<boolean> {
 /**
  * Update last sync timestamp
  */
-async function updateLastSyncTimestamp(): Promise<void> {
+export async function updateLastSyncTimestamp(): Promise<void> {
   try {
     await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
   } catch (error) {

@@ -48,8 +48,6 @@ export async function initDatabase(): Promise<void> {
           availableRooms INTEGER NOT NULL,
           images TEXT NOT NULL,
           description TEXT,
-          contactPhone TEXT,
-          contactWhatsapp TEXT,
           status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'rejected')),
           createdAt INTEGER NOT NULL,
           updatedAt INTEGER NOT NULL,

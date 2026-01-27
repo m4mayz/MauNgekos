@@ -29,8 +29,6 @@ export interface SQLiteKosRow {
   availableRooms: number;
   images: string; // JSON string
   description: string | null;
-  contactPhone: string | null;
-  contactWhatsapp: string | null;
   status: string;
   createdAt: number; // Unix timestamp in milliseconds
   updatedAt: number; // Unix timestamp in milliseconds
@@ -58,8 +56,6 @@ export function serializeKosForSQLite(kos: Kos): SQLiteKosRow {
     availableRooms: kos.availableRooms,
     images: JSON.stringify(kos.images || []),
     description: kos.description || null,
-    contactPhone: kos.contactPhone || null,
-    contactWhatsapp: kos.contactWhatsapp || null,
     status: kos.status,
     createdAt: kos.createdAt instanceof Timestamp ? kos.createdAt.toMillis() : kos.createdAt,
     updatedAt: kos.updatedAt instanceof Timestamp ? kos.updatedAt.toMillis() : kos.updatedAt,
@@ -87,8 +83,6 @@ export function deserializeKosFromSQLite(row: SQLiteKosRow): Kos {
     availableRooms: row.availableRooms,
     images: JSON.parse(row.images),
     description: row.description || undefined,
-    contactPhone: row.contactPhone || undefined,
-    contactWhatsapp: row.contactWhatsapp || undefined,
     status: row.status as 'pending' | 'approved' | 'rejected',
     createdAt: Timestamp.fromMillis(row.createdAt),
     updatedAt: Timestamp.fromMillis(row.updatedAt),

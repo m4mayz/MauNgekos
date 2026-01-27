@@ -12,8 +12,9 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   collectCoverageFrom: [
-    'lib/utils.ts', // Serialization functions
-    'lib/database.ts', // Database schema
+    'services/**/*.ts',
+    'lib/**/*.ts',
+    'contexts/**/*.tsx',
     '!**/*.d.ts',
     '!**/node_modules/**',
   ],

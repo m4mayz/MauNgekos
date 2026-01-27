@@ -73,23 +73,184 @@ jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(() => Promise.resolve({ isConnected: true, isInternetReachable: true })),
 }));
 
-// Mock expo-sqlite with proper implementation
-const mockDatabase = {
-  execAsync: jest.fn(() => Promise.resolve()),
-  getFirstAsync: jest.fn(() => Promise.resolve(null)),
-  getAllAsync: jest.fn(() => Promise.resolve([])),
-  runAsync: jest.fn(() => Promise.resolve({ changes: 1, lastInsertRowId: 1 })),
-  prepareAsync: jest.fn(() =>
-    Promise.resolve({
-      executeAsync: jest.fn(() => Promise.resolve()),
-      finalizeAsync: jest.fn(() => Promise.resolve()),
-    })
-  ),
-  withTransactionAsync: jest.fn((callback) => callback()),
+// Mock expo-sqlite with in-memory implementation
+const createMockDatabase = () => {
+  // In-memory storage
+  const tables = {
+    kos: [],
+    saved_kos: [],
+    sync_queue: [],
+  };
+
+  let userVersion = 0;
+
+  return {
+    execAsync: jest.fn(async (sql) => {
+      // Handle PRAGMA user_version
+      if (sql.includes('PRAGMA user_version =')) {
+        const match = sql.match(/PRAGMA user_version = (\d+)/);
+        if (match) userVersion = parseInt(match[1]);
+        return;
+      }
+
+      // Handle DELETE operations
+      if (sql.includes('DELETE FROM')) {
+        if (sql.includes('DELETE FROM kos')) tables.kos = [];
+        if (sql.includes('DELETE FROM saved_kos')) tables.saved_kos = [];
+        if (sql.includes('DELETE FROM sync_queue')) tables.sync_queue = [];
+        return;
+      }
+
+      // CREATE TABLE, CREATE INDEX - just return
+      return;
+    }),
+
+    getFirstAsync: jest.fn(async (sql, params = []) => {
+      // PRAGMA user_version
+      if (sql.includes('PRAGMA user_version')) {
+        return { user_version: userVersion };
+      }
+
+      // COUNT queries
+      if (sql.includes('COUNT(*)')) {
+        if (sql.includes('FROM kos')) {
+          return { count: tables.kos.length };
+        }
+        if (sql.includes('FROM saved_kos')) {
+          const [userId, kosId] = params;
+          const count = tables.saved_kos.filter(
+            (s) => s.userId === userId && s.kosId === kosId
+          ).length;
+          return { count };
+        }
+        if (sql.includes('FROM sync_queue')) {
+          return { count: tables.sync_queue.length };
+        }
+      }
+
+      return null;
+    }),
+
+    getAllAsync: jest.fn(async (sql, params = []) => {
+      // SELECT from kos
+      if (sql.includes('FROM kos')) {
+        let results = [...tables.kos];
+
+        // Filter by status
+        if (params.includes('approved')) {
+          results = results.filter((k) => k.status === 'approved');
+        }
+
+        // Filter by type
+        if (sql.includes('type = ?')) {
+          const typeParam = params.find((p) => ['putra', 'putri', 'campur'].includes(p));
+          if (typeParam) {
+            results = results.filter((k) => k.type === typeParam);
+          }
+        }
+
+        return results;
+      }
+
+      // SELECT from saved_kos with JOIN
+      if (sql.includes('FROM kos k INNER JOIN saved_kos')) {
+        const [userId] = params;
+        const savedKosIds = tables.saved_kos.filter((s) => s.userId === userId).map((s) => s.kosId);
+        return tables.kos.filter((k) => savedKosIds.includes(k.id));
+      }
+
+      // SELECT from sync_queue
+      if (sql.includes('FROM sync_queue')) {
+        return [...tables.sync_queue];
+      }
+
+      return [];
+    }),
+
+    runAsync: jest.fn(async (sql, params = []) => {
+      // INSERT into kos
+      if (sql.includes('INSERT OR REPLACE INTO kos')) {
+        const row = {
+          id: params[0],
+          ownerId: params[1],
+          ownerName: params[2],
+          ownerPhone: params[3],
+          name: params[4],
+          address: params[5],
+          latitude: params[6],
+          longitude: params[7],
+          type: params[8],
+          priceMin: params[9],
+          priceMax: params[10],
+          facilities: params[11],
+          totalRooms: params[12],
+          availableRooms: params[13],
+          images: params[14],
+          description: params[15],
+          status: params[16],
+          createdAt: params[17],
+          updatedAt: params[18],
+          syncedAt: params[19],
+        };
+
+        // Remove existing if any
+        tables.kos = tables.kos.filter((k) => k.id !== row.id);
+        tables.kos.push(row);
+        return { changes: 1, lastInsertRowId: 1 };
+      }
+
+      // INSERT into saved_kos
+      if (sql.includes('INSERT OR IGNORE INTO saved_kos')) {
+        const [userId, kosId, savedAt, synced] = params;
+        const exists = tables.saved_kos.some((s) => s.userId === userId && s.kosId === kosId);
+        if (!exists) {
+          tables.saved_kos.push({ userId, kosId, savedAt, synced });
+        }
+        return { changes: exists ? 0 : 1, lastInsertRowId: 1 };
+      }
+
+      // INSERT into sync_queue
+      if (sql.includes('INSERT INTO sync_queue')) {
+        const item = {
+          id: tables.sync_queue.length + 1,
+          operation: params[0],
+          collection: params[1],
+          documentId: params[2],
+          data: params[3],
+          createdAt: params[4],
+          retryCount: params[5] || 0,
+          lastError: params[6] || null,
+        };
+        tables.sync_queue.push(item);
+        return { changes: 1, lastInsertRowId: item.id };
+      }
+
+      // DELETE from saved_kos
+      if (sql.includes('DELETE FROM saved_kos')) {
+        const [userId, kosId] = params;
+        const initialLength = tables.saved_kos.length;
+        tables.saved_kos = tables.saved_kos.filter(
+          (s) => !(s.userId === userId && s.kosId === kosId)
+        );
+        return { changes: initialLength - tables.saved_kos.length };
+      }
+
+      return { changes: 0 };
+    }),
+
+    prepareAsync: jest.fn(() =>
+      Promise.resolve({
+        executeAsync: jest.fn(() => Promise.resolve()),
+        finalizeAsync: jest.fn(() => Promise.resolve()),
+      })
+    ),
+
+    withTransactionAsync: jest.fn((callback) => callback()),
+  };
 };
 
 jest.mock('expo-sqlite', () => ({
-  openDatabaseSync: jest.fn(() => mockDatabase),
+  openDatabaseSync: jest.fn(() => createMockDatabase()),
 }));
 
 // Mock Supabase
