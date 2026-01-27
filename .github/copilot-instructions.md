@@ -1,177 +1,133 @@
-# MauNgekos - AI Coding Agent Instructions
+# MauNgekos - AI Agent Instructions
 
 ## Project Overview
 
-**MauNgekos** is a React Native kos (boarding house) rental marketplace app for Indonesia, built with Expo Router, NativeWind (Tailwind), Firebase/Firestore, and Supabase Storage. Three user roles: `pencari` (searchers), `penyewa` (property owners), and `admin` (approvers).
+**MauNgekos** is a React Native kos (boarding house) rental marketplace app built with Expo Router, TypeScript, and NativeWind. It supports three user roles: **pencari** (seekers), **penyewa** (landlords), and **admin**.
 
-## Architecture & Key Patterns
+## Architecture
 
 ### Tech Stack
 
-- **Framework**: Expo SDK 54 with New Architecture enabled
-- **Routing**: Expo Router v6 (file-based routing in `app/` directory)
-- **Styling**: NativeWind v4 + Tailwind CSS
-- **UI**: React Native Reusables (@rn-primitives) - shadcn-style components
-- **Auth & Database**: Firebase Auth + Firestore
-- **Storage**: Supabase for image uploads
-- **State**: Context API (no Redux/Zustand)
-- **Maps**: `react-native-maps` with Google Maps API
+- **Framework**: Expo SDK 54 + Expo Router v6 (file-based routing)
+- **UI**: NativeWind v4 (Tailwind CSS), @rn-primitives, custom UI components
+- **Backend**: Firebase (Firestore + Auth) for data, Supabase Storage for images
+- **State**: Context API ([AuthContext.tsx](contexts/AuthContext.tsx))
+- **Icons**: Monicon (auto-generated from multiple collections)
+- **Maps**: React Native Maps with Google Maps
+- **Fonts**: Manrope (400-800 weights via @expo-google-fonts)
 
 ### Directory Structure
 
 ```
-app/(auth)/          - Login/register screens (guest access)
-app/(pencari)/       - Searcher flow (map, favorites, profile) - accessible to guests
-app/(penyewa)/       - Owner flow (dashboard, add/edit kos)
-app/(admin)/         - Admin approval queue
-contexts/            - AuthContext with Firebase integration
-services/            - kosService.ts for Firestore operations
-lib/                 - firebase.ts, supabase.ts, theme.ts, utils.ts
-components/ui/       - Reusable UI primitives (do NOT manually edit)
-types/index.ts       - TypeScript types and constants
+app/
+  (auth)/       # Login, register
+  (pencari)/    # Seeker role (tabs: home, favorites, profile)
+  (penyewa)/    # Landlord role (dashboard, kos management)
+  (admin)/      # Admin approval workflows
+contexts/       # AuthContext for user state
+services/       # kosService.ts - Firestore data layer
+lib/            # firebase.ts, supabase.ts, facilityIcons.ts (auto-gen)
+types/          # index.ts - shared types (User, Kos, facilities)
+components/
+  ui/           # Reusable primitives (text, button, card, etc.)
+  icons/        # Auto-generated Monicon components
+scripts/        # generate-icons.js, add-icon.js
 ```
 
-### Role-Based Routing
+## Critical Conventions
 
-- **Root Layout** (`app/_layout.tsx`): Handles auth-based navigation redirects
-- **Index** (`app/index.tsx`): Entry point that redirects based on user role
-- Guards enforce: pencari → home, penyewa → dashboard, admin → approvals
-- **Guest access**: Unauthenticated users can browse `(pencari)` routes (map/search)
+### Authentication & Routing
 
-### Data Flow & Services
+- **Role-based redirects** in [app/\_layout.tsx](app/_layout.tsx): pencari→home, penyewa→dashboard, admin→approvals
+- **Guest access allowed** in `(pencari)` routes; protected routes require auth
+- Firebase Auth uses `AsyncStorage` persistence; user data stored in Firestore `users` collection
+- User type: `User { id, email, name, role: 'pencari'|'penyewa'|'admin', savedKos[], createdAt }`
 
-- **AuthContext** provides: `{ user, firebaseUser, loading, signIn, signUp, signOut }`
-- **kosService.ts** patterns:
-  ```typescript
-  getApprovedKos(); // Public listings (status='approved')
-  getKosByOwner(uid); // Owner's properties
-  getPendingKos(); // Admin approval queue
-  createKos(data); // Owner creates (status='pending')
-  updateKosStatus(id, status); // Admin approves/rejects
-  ```
-- **Client-side filtering**: Firestore compound query limitations mean price/facility filters happen client-side
-- **Image upload**: Use `uploadImage(uri, path)` from `lib/supabase.ts` → returns public URL
+### Data Architecture
 
-### Type System (`types/index.ts`)
+- **Primary DB**: Firebase Firestore (collection: `kos`)
+- **Image Storage**: Supabase Storage (bucket: `kos-images`)
+- **Kos document**: `{ id, ownerId, name, address, location: GeoPoint, type: 'putra'|'putri'|'campur', priceMin, priceMax, facilities[], images[], status: 'pending'|'approved'|'rejected', ... }`
+- **Service layer**: [services/kosService.ts](services/kosService.ts) - use functions like `getApprovedKos()`, `getKosByOwner()`, `getPendingKos()`
+- **Client-side filtering**: Complex queries filtered in-memory (Firestore compound query limits)
 
-```typescript
-UserRole = 'pencari' | 'penyewa' | 'admin';
-KosType = 'putra' | 'putri' | 'campur'; // Male/Female/Mixed boarding
-KosStatus = 'pending' | 'approved' | 'rejected';
-```
+### Icon System (Monicon)
 
-- **Facilities**: Split into `ROOM_FACILITIES` (in-room) and `COMMON_FACILITIES` (shared)
-- **GeoPoint**: Use Firebase `GeoPoint` type for location storage, not plain lat/lng objects
+- **Config**: [monicon.config.ts](monicon.config.ts) - lists icons as `'collection:icon-name'`
+- **Auto-generation workflow**:
+  1. Define facilities in [types/index.ts](types/index.ts) with `icon: 'material-symbols:bed'`
+  2. Run `npm run icons` to regenerate [monicon.config.ts](monicon.config.ts) and [lib/facilityIcons.ts](lib/facilityIcons.ts)
+  3. Imports are **static** (Metro bundler requirement) - no dynamic template literals
+- **Add single icon**: `npm run add-icon material-symbols:wifi` (updates config + mapping)
+- **Icon usage**: Import from `lib/facilityIcons.ts` - `const BedIcon = getFacilityIcon('material-symbols:bed')`
+- **Collections used**: `material-symbols`, `ic`, `cil`, `mdi`, `streamline`
 
-### Styling & Theming
+### Styling
 
-- **NativeWind**: Use Tailwind utility classes (`className="bg-primary text-white"`)
-- **Theme**: Custom teal primary color (`hsl(175 66% 32%)`) defined in `lib/theme.ts`
-- **Fonts**: Manrope family (400-800 weights) from `@expo-google-fonts/manrope`
-- **Dark Mode**: `useColorScheme()` from `nativewind` for theme detection
-- Component variants use `class-variance-authority` (cva)
+- **Base**: NativeWind v4 classes (e.g., `className="bg-primary text-white"`)
+- **Fonts**: Use utility classes - `font-medium`, `font-semibold`, `font-bold`, `font-extrabold`
+- **Theme**: HSL CSS variables in [global.css](global.css) - `hsl(var(--primary))`
+- **Text component**: [components/ui/text.tsx](components/ui/text.tsx) with variants (h1-h4, p, muted, lead)
+- **Custom tab bar**: Animated capsule in [(pencari)/(tabs)/\_layout.tsx](<app/(pencari)/(tabs)/_layout.tsx>) using Reanimated
 
-### UI Component Guidelines
+### Facilities
 
-- Import from `@/components/ui/*` (button, input, text, card, etc.)
-- **DO NOT** manually edit components in `components/ui/` - generated by React Native Reusables CLI, **EXCEPT** if i asked to.
-- To add new components: `npx @react-native-reusables/cli@latest add <component-name>`
-- Icons: Use `lucide-react-native` (e.g., `<MapPin size={24} color="..." />`)
+- **Two types**: `ROOM_FACILITIES` (bedroom features) and `COMMON_FACILITIES` (shared amenities)
+- **Defined in**: [types/index.ts](types/index.ts) with labels and icon mappings
+- **Access keys**: Use `ROOM_FACILITY_KEYS` and `COMMON_FACILITY_KEYS` for iteration
+- **Example**: `ROOM_FACILITIES['Kasur'] = { label: 'Kasur', icon: 'material-symbols:bed' }`
 
-## Development Workflows
+## Common Workflows
 
-### Running the App
+### Development
 
 ```bash
-npm run dev          # Start Expo dev server
-# Then: press 'a' (Android), 'i' (iOS), or 'w' (Web)
-npm run clean        # Clear Expo cache and node_modules
+npm run dev              # Start Expo dev server
+npm run android          # Android with cache clear
+npm run icons            # Regenerate icon config from types
+npm run add-icon <name>  # Add single icon interactively
 ```
 
-### Path Aliases
+### Adding a New Facility
 
-- **`@/`** maps to root directory (configured in `tsconfig.json`)
-- Example: `import { useAuth } from '@/contexts/AuthContext'`
+1. Add entry to `ROOM_FACILITIES` or `COMMON_FACILITIES` in [types/index.ts](types/index.ts)
+2. Run `npm run icons` to update [monicon.config.ts](monicon.config.ts) and [lib/facilityIcons.ts](lib/facilityIcons.ts)
+3. Icon auto-appears in facility selectors and kos cards
 
-### Firebase/Supabase Config
+### Creating New UI Components
 
-- Credentials are hardcoded in `lib/firebase.ts` and `lib/supabase.ts`
-- **TODO comments** indicate where to replace with production values
-- AsyncStorage used for auth persistence on native platforms
+- Use @rn-primitives for accessible primitives (see [components/ui/](components/ui/))
+- Extend with `cva` for variants (see [text.tsx](components/ui/text.tsx) pattern)
+- Always support dark mode (`useColorScheme()` from nativewind)
 
-### Location Handling
+### Adding a New Route
 
-- Permissions requested via Expo plugins (see `app.json`)
-- Use `expo-location` for getting user coordinates
-- Convert to Firebase `GeoPoint` before saving: `createGeoPoint(lat, lng)`
+- Create file in `app/` folder (e.g., `app/(pencari)/search.tsx`)
+- Protected routes: Add auth check in parent `_layout.tsx`
+- Use `router.push()` or `router.replace()` from `expo-router`
 
-## Common Patterns
-
-### Form Handling in Add/Edit Screens
+### Image Upload Pattern
 
 ```typescript
-const [loading, setLoading] = useState(false);
-const [images, setImages] = useState<string[]>([]);
-// Upload images first, then create Kos with URLs
-const imageUrls = await Promise.all(
-  images.map((uri, i) => uploadImage(uri, `kos/${userId}/${Date.now()}_${i}.jpg`))
-);
+// 1. Pick image with expo-image-picker
+// 2. Upload to Supabase: uploadImage(uri, `kos/${kosId}/image.jpg`)
+// 3. Store returned publicUrl in Firestore images[] array
 ```
 
-### Authentication Checks
+## Things to Avoid
 
-```typescript
-const { user, loading } = useAuth();
-if (!user) {
-  router.replace('/(auth)/login');
-  return null;
-}
-```
+- ❌ Dynamic icon imports with template literals (Metro incompatible)
+- ❌ Direct Firestore writes without using [kosService.ts](services/kosService.ts)
+- ❌ Hard-coded colors - use theme variables or NativeWind classes
+- ❌ Editing [lib/facilityIcons.ts](lib/facilityIcons.ts) manually (auto-generated)
+- ❌ Complex Firestore compound queries (use client-side filtering in `getFilteredKos`)
 
-### Expo Router Navigation
+## Key Files Reference
 
-```typescript
-import { router } from 'expo-router';
-router.push('/(pencari)/kos/[id]', { id: kosId }); // Navigate with params
-router.replace('/(auth)/login'); // Replace (no back)
-```
-
-### Tab Navigation
-
-- Defined in `app/(role)/_layout.tsx` using `<Tabs>` from Expo Router
-- Icons from lucide-react-native
-- Bottom insets handled with `useSafeAreaInsets()`
-
-## Project-Specific Conventions
-
-1. **Firestore Collections**: Always use `serverTimestamp()` for createdAt/updatedAt
-2. **Status Flow**: New kos → `pending` → admin reviews → `approved`/`rejected`
-3. **Available Rooms**: Must be <= totalRooms (validate client-side)
-4. **Image Paths**: Format as `kos/{ownerId}/{timestamp}_{index}.jpg`
-5. **Error Handling**: Use `Alert.alert()` for user-facing errors, `console.error` for logs
-6. **Loading States**: Show `<ActivityIndicator>` during async operations
-7. **Modularization**: Services handle data, screens handle UI/state
-
-## Critical Gotchas
-
-- **Do NOT** use `getAuth()` on native - use `initializeAuth()` with AsyncStorage persistence (see `lib/firebase.ts`)
-- **Client-side filters**: Firestore can't handle complex OR queries - fetch approved kos, filter in JS
-- **Image picker**: Always check `result.canceled` before accessing `result.assets[0]`
-- **TypeScript**: Strict mode enabled - null checks required for optional fields
-- **Expo Router**: Use typed routes when available (`href={...}` not string-only)
-- Hindari penggunaan komentar dalam kode yang berlebihan; gunakan nama variabel dan fungsi yang jelas untuk meningkatkan keterbacaan kode.
-
-## Testing & Debugging
-
-- No test suite configured yet
-- Use Expo DevTools for debugging
-- React Native Debugger for advanced inspection
-- Check Firebase Console for auth/Firestore issues
-- Verify Supabase Storage bucket permissions if uploads fail
-
-## Resources
-
-- [Expo Router Docs](https://docs.expo.dev/router/introduction/)
-- [NativeWind v4 Docs](https://www.nativewind.dev/v4/overview)
-- [React Native Reusables](https://reactnativereusables.com)
-- [Firebase React Native Guide](https://rnfirebase.io/) (not using @react-native-firebase)
+- [app/\_layout.tsx](app/_layout.tsx) - Auth routing logic
+- [contexts/AuthContext.tsx](contexts/AuthContext.tsx) - User state management
+- [services/kosService.ts](services/kosService.ts) - All Firestore operations
+- [types/index.ts](types/index.ts) - Core types + facility definitions
+- [lib/facilityIcons.ts](lib/facilityIcons.ts) - Icon mapping (DO NOT EDIT)
+- [monicon.config.ts](monicon.config.ts) - Icon generation config
+- [app/(pencari)/(tabs)/home.tsx](<app/(pencari)/(tabs)/home.tsx>) - Map + search UI example
