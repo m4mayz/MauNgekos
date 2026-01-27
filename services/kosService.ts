@@ -16,96 +16,211 @@ import {
 import { db } from '@/lib/firebase';
 import { Kos, KosFilter, KosStatus, KosType } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as sqliteService from './sqliteService';
+import * as syncService from './syncService';
 
 const COLLECTION_NAME = 'kos';
 
+// Flag to control SQLite usage (can be disabled for debugging)
+const USE_SQLITE = true;
+
 /**
  * Get all approved kos (for map display)
+ * SQLite-first strategy: reads from local cache, syncs from Firestore in background
  */
 export async function getApprovedKos(): Promise<Kos[]> {
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where('status', '==', 'approved'),
-    orderBy('createdAt', 'desc')
-  );
+  if (!USE_SQLITE) {
+    // Fallback to direct Firestore query
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('status', '==', 'approved'),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Kos[];
+  }
 
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Kos[];
+  try {
+    // Read from SQLite first (fast, works offline)
+    const localKos = await sqliteService.getAllApprovedKos();
+
+    // Check if we're online and need to sync
+    const isOnline = await syncService.isOnline();
+    if (isOnline && (await syncService.shouldSync())) {
+      // Background sync from Firestore to SQLite
+      syncService.syncAllKosFromFirestore().catch((error) => {
+        console.error('Background sync failed:', error);
+      });
+    }
+
+    return localKos;
+  } catch (error) {
+    console.error('Error reading from SQLite, falling back to Firestore:', error);
+    // Fallback to Firestore on SQLite error
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('status', '==', 'approved'),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Kos[];
+  }
 }
 
 /**
  * Get kos with filters (for search)
+ * Uses SQLite for offline filtering
  */
 export async function getFilteredKos(filters: KosFilter): Promise<Kos[]> {
-  let q = query(collection(db, COLLECTION_NAME), where('status', '==', 'approved'));
+  if (!USE_SQLITE) {
+    // Fallback to Firestore with client-side filtering
+    let q = query(collection(db, COLLECTION_NAME), where('status', '==', 'approved'));
+    const snapshot = await getDocs(q);
+    let results = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Kos[];
 
-  // Note: Firestore has limitations on compound queries
-  // For MVP, we filter client-side for complex filters
-  const snapshot = await getDocs(q);
-  let results = snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Kos[];
+    // Client-side filtering
+    if (filters.priceMin !== undefined) {
+      results = results.filter((kos) => kos.priceMin >= filters.priceMin!);
+    }
 
-  // Client-side filtering
-  if (filters.priceMin !== undefined) {
-    results = results.filter((kos) => kos.priceMin >= filters.priceMin!);
+    if (filters.priceMax !== undefined) {
+      results = results.filter((kos) => kos.priceMax <= filters.priceMax!);
+    }
+
+    if (filters.type) {
+      results = results.filter((kos) => kos.type === filters.type);
+    }
+
+    if (filters.facilities && filters.facilities.length > 0) {
+      results = results.filter((kos) =>
+        filters.facilities!.every((f) => kos.facilities.includes(f))
+      );
+    }
+
+    if (filters.hasAvailableRooms) {
+      results = results.filter((kos) => kos.availableRooms > 0);
+    }
+
+    return results;
   }
 
-  if (filters.priceMax !== undefined) {
-    results = results.filter((kos) => kos.priceMax <= filters.priceMax!);
-  }
+  try {
+    // Use SQLite filtering (works offline)
+    return await sqliteService.getFilteredKos(filters);
+  } catch (error) {
+    console.error('Error filtering from SQLite, falling back to Firestore:', error);
+    // Fallback to Firestore
+    let q = query(collection(db, COLLECTION_NAME), where('status', '==', 'approved'));
+    const snapshot = await getDocs(q);
+    let results = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Kos[];
 
-  if (filters.type) {
-    results = results.filter((kos) => kos.type === filters.type);
-  }
+    // Client-side filtering
+    if (filters.priceMin !== undefined) {
+      results = results.filter((kos) => kos.priceMin >= filters.priceMin!);
+    }
 
-  if (filters.facilities && filters.facilities.length > 0) {
-    results = results.filter((kos) => filters.facilities!.every((f) => kos.facilities.includes(f)));
-  }
+    if (filters.priceMax !== undefined) {
+      results = results.filter((kos) => kos.priceMax <= filters.priceMax!);
+    }
 
-  if (filters.hasAvailableRooms) {
-    results = results.filter((kos) => kos.availableRooms > 0);
-  }
+    if (filters.type) {
+      results = results.filter((kos) => kos.type === filters.type);
+    }
 
-  return results;
+    if (filters.facilities && filters.facilities.length > 0) {
+      results = results.filter((kos) =>
+        filters.facilities!.every((f) => kos.facilities.includes(f))
+      );
+    }
+
+    if (filters.hasAvailableRooms) {
+      results = results.filter((kos) => kos.availableRooms > 0);
+    }
+
+    return results;
+  }
 }
 
 /**
  * Get kos by owner ID (for penyewa dashboard)
+ * Uses SQLite cache with Firestore fallback
  */
 export async function getKosByOwner(ownerId: string): Promise<Kos[]> {
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where('ownerId', '==', ownerId),
-    orderBy('createdAt', 'desc')
-  );
+  if (!USE_SQLITE) {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('ownerId', '==', ownerId),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Kos[];
+  }
 
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Kos[];
+  try {
+    return await sqliteService.getKosByOwner(ownerId);
+  } catch (error) {
+    console.error('Error reading from SQLite, falling back to Firestore:', error);
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('ownerId', '==', ownerId),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Kos[];
+  }
 }
 
 /**
  * Get pending kos (for admin approval)
+ * Uses SQLite cache with Firestore fallback
  */
 export async function getPendingKos(): Promise<Kos[]> {
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where('status', '==', 'pending'),
-    orderBy('createdAt', 'desc')
-  );
+  if (!USE_SQLITE) {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Kos[];
+  }
 
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Kos[];
+  try {
+    return await sqliteService.getKosByStatus('pending');
+  } catch (error) {
+    console.error('Error reading from SQLite, falling back to Firestore:', error);
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Kos[];
+  }
 }
 
 /**
@@ -124,51 +239,161 @@ export async function getKosById(id: string): Promise<Kos | null> {
 
 /**
  * Create new kos
+ * If online: write to Firestore directly
+ * If offline: queue for sync
  */
 export async function createKos(
   data: Omit<Kos, 'id' | 'status' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
-  const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-    ...data,
-    status: 'pending' as KosStatus,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  const isOnline = await syncService.isOnline();
 
-  return docRef.id;
+  if (isOnline) {
+    // Online: write to Firestore directly
+    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+      ...data,
+      status: 'pending' as KosStatus,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    // Also save to SQLite cache
+    if (USE_SQLITE) {
+      try {
+        const newKos: Kos = {
+          id: docRef.id,
+          ...data,
+          status: 'pending',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        };
+        await sqliteService.insertKos(newKos);
+      } catch (error) {
+        console.error('Error caching created kos to SQLite:', error);
+      }
+    }
+
+    return docRef.id;
+  } else {
+    // Offline: generate temp ID and queue for sync
+    const tempId = `temp_${Date.now()}`;
+
+    if (USE_SQLITE) {
+      // Add to sync queue
+      await sqliteService.addToSyncQueue('create', COLLECTION_NAME, tempId, data);
+
+      // Optimistically add to SQLite
+      const newKos: Kos = {
+        id: tempId,
+        ...data,
+        status: 'pending',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      };
+      await sqliteService.insertKos(newKos);
+    }
+
+    return tempId;
+  }
 }
 
 /**
  * Update kos
+ * If online: write to Firestore directly
+ * If offline: queue for sync
  */
 export async function updateKos(
   id: string,
   data: Partial<Omit<Kos, 'id' | 'createdAt'>>
 ): Promise<void> {
-  const docRef = doc(db, COLLECTION_NAME, id);
-  await updateDoc(docRef, {
-    ...data,
-    updatedAt: serverTimestamp(),
-  });
+  const isOnline = await syncService.isOnline();
+
+  if (isOnline) {
+    // Online: write to Firestore
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: serverTimestamp(),
+    });
+
+    // Update SQLite cache
+    if (USE_SQLITE) {
+      try {
+        await sqliteService.updateKos(id, data as any);
+      } catch (error) {
+        console.error('Error updating kos in SQLite:', error);
+      }
+    }
+  } else {
+    // Offline: queue for sync
+    if (USE_SQLITE) {
+      await sqliteService.addToSyncQueue('update', COLLECTION_NAME, id, data);
+      // Optimistically update SQLite
+      await sqliteService.updateKos(id, data as any);
+    }
+  }
 }
 
 /**
  * Update kos status (for admin)
+ * If online: write to Firestore directly
+ * If offline: queue for sync
  */
 export async function updateKosStatus(id: string, status: KosStatus): Promise<void> {
-  const docRef = doc(db, COLLECTION_NAME, id);
-  await updateDoc(docRef, {
-    status,
-    updatedAt: serverTimestamp(),
-  });
+  const isOnline = await syncService.isOnline();
+
+  if (isOnline) {
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await updateDoc(docRef, {
+      status,
+      updatedAt: serverTimestamp(),
+    });
+
+    // Update SQLite cache
+    if (USE_SQLITE) {
+      try {
+        await sqliteService.updateKos(id, { status } as any);
+      } catch (error) {
+        console.error('Error updating kos status in SQLite:', error);
+      }
+    }
+  } else {
+    // Offline: queue for sync
+    if (USE_SQLITE) {
+      await sqliteService.addToSyncQueue('updateStatus', COLLECTION_NAME, id, { status });
+      // Optimistically update SQLite
+      await sqliteService.updateKos(id, { status } as any);
+    }
+  }
 }
 
 /**
  * Delete kos
+ * If online: delete from Firestore directly
+ * If offline: queue for sync
  */
 export async function deleteKos(id: string): Promise<void> {
-  const docRef = doc(db, COLLECTION_NAME, id);
-  await deleteDoc(docRef);
+  const isOnline = await syncService.isOnline();
+
+  if (isOnline) {
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await deleteDoc(docRef);
+
+    // Delete from SQLite cache
+    if (USE_SQLITE) {
+      try {
+        await sqliteService.deleteKos(id);
+      } catch (error) {
+        console.error('Error deleting kos from SQLite:', error);
+      }
+    }
+  } else {
+    // Offline: queue for sync
+    if (USE_SQLITE) {
+      await sqliteService.addToSyncQueue('delete', COLLECTION_NAME, id);
+      // Optimistically delete from SQLite
+      await sqliteService.deleteKos(id);
+    }
+  }
 }
 
 /**

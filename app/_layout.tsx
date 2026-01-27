@@ -18,6 +18,8 @@ import {
   Manrope_800ExtraBold,
 } from '@expo-google-fonts/manrope';
 import * as SplashScreen from 'expo-splash-screen';
+import { initDatabase } from '@/lib/database';
+import * as syncService from '@/services/syncService';
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -32,6 +34,29 @@ function RootLayoutNav() {
   const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Initialize SQLite database on app launch
+  useEffect(() => {
+    initDatabase()
+      .then(() => {
+        console.log('SQLite database initialized');
+        // Start network listener for auto-sync
+        syncService.startNetworkListener();
+        // Initial sync from Firestore
+        return syncService.syncAllKosFromFirestore();
+      })
+      .then(() => {
+        console.log('Initial sync completed');
+      })
+      .catch((error) => {
+        console.error('Error initializing database or sync:', error);
+      });
+
+    // Cleanup on unmount
+    return () => {
+      syncService.stopNetworkListener();
+    };
+  }, []);
 
   useEffect(() => {
     if (loading) return;
