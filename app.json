@@ -10,11 +10,11 @@
     "newArchEnabled": true,
     "splash": {
       "backgroundColor": "#1c877e",
-      "image": "./assets/images/icon-no-bg1.png",
+      "image": "./assets/images/Horizontal-nobg.png",
       "dark": {
         "backgroundColor": "#1f2937"
       },
-      "imageWidth": 200
+      "imageWidth": 150
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
