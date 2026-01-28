@@ -21,7 +21,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.maungekos.app",
       "config": {
-        "googleMapsApiKey": "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"
+        "googleMapsApiKey": "GOOGLE_MAPS_API_KEY"
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Kami memerlukan lokasi Anda untuk menampilkan kos terdekat.",
@@ -33,7 +33,7 @@
       "package": "com.maungekos.app",
       "config": {
         "googleMaps": {
-          "apiKey": "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"
+          "apiKey": "GOOGLE_MAPS_API_KEY"
         }
       },
       "permissions": [

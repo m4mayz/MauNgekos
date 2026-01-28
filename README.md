@@ -117,19 +117,19 @@ File `.env` butuh 9 variables dari Firebase, Supabase, dan Google Maps:
 **Firebase Configuration** ([console.firebase.google.com](https://console.firebase.google.com))
 
 ```env
-EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
+FIREBASE_API_KEY=your_api_key
+FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
+FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+FIREBASE_APP_ID=your_app_id
 ```
 
 **Supabase Configuration** ([app.supabase.com](https://app.supabase.com))
 
 ```env
-EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_anon_key
 ```
 
 Buat storage bucket bernama `kos-images` di Supabase (public bucket).
@@ -137,7 +137,7 @@ Buat storage bucket bernama `kos-images` di Supabase (public bucket).
 **Google Maps API** ([console.cloud.google.com](https://console.cloud.google.com))
 
 ```env
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_key
+GOOGLE_MAPS_API_KEY=your_google_maps_key
 ```
 
 Enable Maps SDK for Android dan Maps SDK for iOS.
