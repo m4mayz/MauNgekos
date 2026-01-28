@@ -16,7 +16,9 @@
       },
       "imageWidth": 150
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.maungekos.app",
@@ -63,7 +65,8 @@
           "photosPermission": "Izinkan MauNgekos mengakses foto Anda untuk upload gambar."
         }
       ],
-      "expo-file-system"
+      "expo-file-system",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true
