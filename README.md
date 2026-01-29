@@ -2,6 +2,8 @@
 
 ![GitHub stars](https://img.shields.io/github/stars/m4mayz/MauNgekos?style=social)
 ![GitHub forks](https://img.shields.io/github/forks/m4mayz/MauNgekos?style=social)
+[![GitHub release](https://img.shields.io/github/v/release/m4mayz/MauNgekos?include_prereleases)](https://github.com/m4mayz/MauNgekos/releases)
+[![Downloads](https://img.shields.io/github/downloads/m4mayz/MauNgekos/total)](https://github.com/m4mayz/MauNgekos/releases)
 ![GitHub issues](https://img.shields.io/github/issues/m4mayz/MauNgekos)
 ![GitHub license](https://img.shields.io/github/license/m4mayz/MauNgekos)
 ![GitHub last commit](https://img.shields.io/github/last-commit/m4mayz/MauNgekos)

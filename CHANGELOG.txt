@@ -1,0 +1,49 @@
+MauNgekos v1.0.0-pre-release
+============================
+Release Date: January 30, 2026
+
+ABOUT
+-----
+Marketplace kos-kosan dengan sistem tiga role: pencari (cari kos), penyewa (yang punya kos), dan admin (approve listing).
+
+KEY FEATURES
+------------
+- Map-based exploration dengan Google Maps
+- Filter by harga, tipe, fasilitas, kamar tersedia
+- Save favorite kos
+- Upload multiple photos per listing
+- Dark mode support
+- Offline-capable dengan SQLite cache
+- WhatsApp integration untuk contact pemilik
+
+ROLES
+-----
+Pencari: Browse dan save kos di map
+Penyewa: Create dan manage listings (max 3)
+Admin: Approve/reject kos listings
+
+TECH STACK
+----------
+Expo SDK 54 | React Native 0.81 | TypeScript | Firebase | Supabase | SQLite
+
+KNOWN ISSUES
+------------
+- No pagination on kos list
+- No image compression
+- Client-side filtering only
+
+INSTALLATION
+------------
+1. Download APK dari GitHub Releases
+2. Enable "Install from Unknown Sources"
+3. Install APK
+4. Grant permissions (Location, Camera, Storage)
+5. Create account, select role, start exploring!
+
+FEEDBACK
+--------
+Report bugs: https://github.com/m4mayz/MauNgekos/issues
+
+LICENSE
+-------
+MIT License
