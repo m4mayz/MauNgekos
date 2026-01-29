@@ -4,6 +4,8 @@ const DATABASE_NAME = 'mau-ngekos.db';
 const DATABASE_VERSION = 1;
 
 let db: SQLite.SQLiteDatabase | null = null;
+let isInitialized = false;
+let initializationPromise: Promise<void> | null = null;
 
 /**
  * Get or open SQLite database connection
@@ -16,21 +18,43 @@ export function getDatabase(): SQLite.SQLiteDatabase {
 }
 
 /**
+ * Check if database is initialized
+ */
+export function isDatabaseInitialized(): boolean {
+  return isInitialized;
+}
+
+/**
  * Initialize database schema with all tables and indexes
+ * Uses singleton pattern to prevent concurrent initialization
  */
 export async function initDatabase(): Promise<void> {
-  const database = getDatabase();
+  // If already initialized, return immediately
+  if (isInitialized) {
+    console.log('Database already initialized, skipping...');
+    return;
+  }
 
-  try {
-    // Check database version
-    const result = await database.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    const currentVersion = result?.user_version || 0;
+  // If initialization is in progress, wait for it
+  if (initializationPromise) {
+    console.log('Database initialization in progress, waiting...');
+    return initializationPromise;
+  }
 
-    if (currentVersion < DATABASE_VERSION) {
-      console.log(`Initializing database v${DATABASE_VERSION}...`);
+  // Start new initialization
+  initializationPromise = (async () => {
+    const database = getDatabase();
 
-      // Create kos table
-      await database.execAsync(`
+    try {
+      // Check database version
+      const result = await database.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+      const currentVersion = result?.user_version || 0;
+
+      if (currentVersion < DATABASE_VERSION) {
+        console.log(`Initializing database v${DATABASE_VERSION}...`);
+
+        // Create kos table
+        await database.execAsync(`
         CREATE TABLE IF NOT EXISTS kos (
           id TEXT PRIMARY KEY,
           ownerId TEXT NOT NULL,
@@ -55,8 +79,8 @@ export async function initDatabase(): Promise<void> {
         );
       `);
 
-      // Create saved_kos table (favorites)
-      await database.execAsync(`
+        // Create saved_kos table (favorites)
+        await database.execAsync(`
         CREATE TABLE IF NOT EXISTS saved_kos (
           userId TEXT NOT NULL,
           kosId TEXT NOT NULL,
@@ -67,8 +91,8 @@ export async function initDatabase(): Promise<void> {
         );
       `);
 
-      // Create sync_queue table for offline write operations
-      await database.execAsync(`
+        // Create sync_queue table for offline write operations
+        await database.execAsync(`
         CREATE TABLE IF NOT EXISTS sync_queue (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           operation TEXT NOT NULL CHECK(operation IN ('create', 'update', 'delete', 'save', 'unsave', 'updateStatus')),
@@ -81,8 +105,8 @@ export async function initDatabase(): Promise<void> {
         );
       `);
 
-      // Create indexes for performance
-      await database.execAsync(`
+        // Create indexes for performance
+        await database.execAsync(`
         CREATE INDEX IF NOT EXISTS idx_kos_status ON kos(status);
         CREATE INDEX IF NOT EXISTS idx_kos_owner ON kos(ownerId);
         CREATE INDEX IF NOT EXISTS idx_kos_type ON kos(type);
@@ -91,17 +115,25 @@ export async function initDatabase(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_sync_queue_created ON sync_queue(createdAt);
       `);
 
-      // Update database version
-      await database.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+        // Update database version
+        await database.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
 
-      console.log('Database initialized successfully!');
-    } else {
-      console.log(`Database v${currentVersion} already initialized`);
+        console.log('Database initialized successfully!');
+      } else {
+        console.log(`Database v${currentVersion} already initialized`);
+      }
+
+      // Mark as initialized
+      isInitialized = true;
+    } catch (error) {
+      console.error('❌ Error initializing database:', error);
+      isInitialized = false;
+      initializationPromise = null; // Reset so it can be retried
+      throw error;
     }
-  } catch (error) {
-    console.error('Error initializing database:', error);
-    throw error;
-  }
+  })();
+
+  return initializationPromise;
 }
 
 /**

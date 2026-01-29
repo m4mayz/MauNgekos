@@ -12,6 +12,7 @@ export interface User {
   name: string;
   role: UserRole;
   savedKos?: string[]; // Array of saved kos IDs
+  kos_quota?: number; // Number of kos a penyewa can create (default: 1 for free, more for premium)
   createdAt: Timestamp;
 }
 
@@ -32,6 +33,7 @@ export interface Kos {
   images: string[];
   description?: string;
   status: KosStatus;
+  previousStatus?: KosStatus; // Status sebelumnya (untuk tracking re-submission)
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

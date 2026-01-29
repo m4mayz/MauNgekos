@@ -11,19 +11,14 @@
     "splash": {
       "backgroundColor": "#1c877e",
       "image": "./assets/images/Horizontal-nobg.png",
-      "dark": {
-        "backgroundColor": "#1f2937"
-      },
       "imageWidth": 150
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.maungekos.app",
       "config": {
-        "googleMapsApiKey": "GOOGLE_MAPS_API_KEY"
+        "googleMapsApiKey": "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Kami memerlukan lokasi Anda untuk menampilkan kos terdekat.",
@@ -35,7 +30,7 @@
       "package": "com.maungekos.app",
       "config": {
         "googleMaps": {
-          "apiKey": "GOOGLE_MAPS_API_KEY"
+          "apiKey": "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"
         }
       },
       "permissions": [

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuth } from '@/contexts/AuthContext';
 import { Text } from '@/components/ui/text';
@@ -38,6 +38,7 @@ import {
   Sparkles,
   CheckCircle,
   Compass,
+  RefreshCw,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
@@ -72,6 +73,56 @@ const KOS_TYPE_COLORS: Record<KosType, string> = {
   putri: '#EC4899',
   campur: '#10B981',
 };
+
+const HIDE_MARKERS: any[] = [
+  // Hide all POI (points of interest) business labels
+  {
+    featureType: 'poi.business',
+    stylers: [{ visibility: 'off' }],
+  },
+  // Hide transit stations
+  {
+    featureType: 'transit',
+    elementType: 'labels.icon',
+    stylers: [{ visibility: 'off' }],
+  },
+  // Hide all POI labels
+  {
+    featureType: 'poi',
+    elementType: 'labels',
+    stylers: [{ visibility: 'off' }],
+  },
+  // Hide attractions
+  {
+    featureType: 'poi.attraction',
+    stylers: [{ visibility: 'off' }],
+  },
+  // Hide government buildings
+  {
+    featureType: 'poi.government',
+    stylers: [{ visibility: 'off' }],
+  },
+  // Hide medical facilities
+  {
+    featureType: 'poi.medical',
+    stylers: [{ visibility: 'off' }],
+  },
+  // Hide places of worship
+  {
+    featureType: 'poi.place_of_worship',
+    stylers: [{ visibility: 'off' }],
+  },
+  // Hide schools
+  {
+    featureType: 'poi.school',
+    stylers: [{ visibility: 'off' }],
+  },
+  // Hide sports complex
+  {
+    featureType: 'poi.sports_complex',
+    stylers: [{ visibility: 'off' }],
+  },
+];
 
 // Dark mode map style - Modern & Sleek
 const DARK_MAP_STYLE = [
@@ -111,10 +162,6 @@ const DARK_MAP_STYLE = [
     stylers: [{ color: '#6b7280' }],
   },
   {
-    featureType: 'poi.business',
-    stylers: [{ visibility: 'off' }], // Hide business POIs for cleaner look
-  },
-  {
     featureType: 'poi.park',
     elementType: 'geometry',
     stylers: [{ color: '#1e3a2f' }], // Darker green for parks
@@ -140,11 +187,7 @@ const DARK_MAP_STYLE = [
     elementType: 'labels.text.fill',
     stylers: [{ color: '#94a3b8' }],
   },
-  {
-    featureType: 'road',
-    elementType: 'labels.icon',
-    stylers: [{ visibility: 'off' }], // Hide road icons for cleaner look
-  },
+
   // Highways - Make them stand out
   {
     featureType: 'road.highway',
@@ -232,6 +275,7 @@ const DARK_MAP_STYLE = [
 export default function HomeScreen() {
   const { user } = useAuth();
   const { colorScheme } = useColorScheme();
+  const params = useLocalSearchParams<{ kosId?: string }>();
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
   const [kosList, setKosList] = useState<Kos[]>([]);
@@ -240,6 +284,7 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<KosFilter>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
 
@@ -277,22 +322,63 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  // Load kos data
+  // Load kos data - force refresh on initial mount to get fresh Firebase data
   useEffect(() => {
-    loadKos();
+    loadKos(true); // Force refresh on mount to ensure fresh data from Firebase
   }, []);
 
-  const loadKos = async () => {
-    setLoading(true);
+  // Handle kosId from params (navigate from favorites)
+  useEffect(() => {
+    if (params.kosId && kosList.length > 0) {
+      console.log('[Home] Opening kos from params:', params.kosId);
+      const kos = kosList.find((k) => k.id === params.kosId);
+      if (kos) {
+        // Animate map to kos location
+        const kosRegion: Region = {
+          latitude: kos.location.latitude,
+          longitude: kos.location.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        };
+        mapRef.current?.animateToRegion(kosRegion, 1000);
+
+        // Open detail sheet
+        setTimeout(() => {
+          setSelectedKos(kos);
+          setSheetVisible(true);
+        }, 500);
+
+        // Clear params
+        router.setParams({ kosId: undefined });
+      } else {
+        console.warn('[Home] Kos not found in list:', params.kosId);
+      }
+    }
+  }, [params.kosId, kosList]);
+
+  const loadKos = async (forceRefresh: boolean = false) => {
+    if (!refreshing) {
+      setLoading(true);
+    }
     try {
-      const data = await getApprovedKos();
+      const data = await getApprovedKos(forceRefresh);
       setKosList(data);
       setFilteredKos(data);
+      if (forceRefresh) {
+        console.log('[Home] Force refreshed kos count:', data.length);
+      }
     } catch (error) {
       console.error('Error loading kos:', error);
+      Alert.alert('Error', 'Gagal memuat data kos');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadKos(true); // Force refresh from Firebase
   };
 
   // Filter kos based on search and filters
@@ -411,7 +497,9 @@ export default function HomeScreen() {
         showsMyLocationButton={false}
         toolbarEnabled={false}
         showsCompass={false}
-        customMapStyle={colorScheme === 'dark' ? DARK_MAP_STYLE : []}
+        customMapStyle={
+          colorScheme === 'dark' ? [...HIDE_MARKERS, ...DARK_MAP_STYLE] : HIDE_MARKERS
+        }
         onPress={() => setSelectedKos(null)}>
         {filteredKos.map((kos) => (
           <Marker
@@ -473,8 +561,8 @@ export default function HomeScreen() {
               <Button
                 variant="outline"
                 size="icon"
-                className="bg-background shadow shadow-black"
-                onPress={() => router.push('/(pencari)/profile')}>
+                className="h-10 self-center bg-background shadow shadow-black"
+                onPress={() => router.push('/(pencari)/(tabs)/profile')}>
                 <User size={20} color="hsl(0, 0%, 3.9%)" />
               </Button>
             )}
@@ -774,25 +862,44 @@ export default function HomeScreen() {
 
         {/* My Location Button - Hidden when sheet is visible */}
         {!sheetVisible && (
-          <Button
-            variant="outline"
-            size="icon"
-            className="absolute bottom-[20px] right-4 h-12 w-12 rounded-2xl border-0 bg-background shadow-lg shadow-black dark:bg-[#000]"
-            onPress={goToUserLocation}
-            disabled={isLocating}>
-            {isLocating ? (
-              <ActivityIndicator
-                size="small"
-                color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
-              />
-            ) : (
-              <IcBaselineMyLocationIcon
-                height={22}
-                width={22}
-                color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
-              />
-            )}
-          </Button>
+          <View className="absolute bottom-[20px] right-4 gap-2">
+            {/* Refresh Button */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-2xl border-0 bg-background shadow-lg shadow-black dark:bg-[#000]"
+              onPress={handleRefresh}
+              disabled={refreshing}>
+              {refreshing ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
+                />
+              ) : (
+                <RefreshCw size={22} color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'} />
+              )}
+            </Button>
+            {/* Location Button */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-2xl border-0 bg-background shadow-lg shadow-black dark:bg-[#000]"
+              onPress={goToUserLocation}
+              disabled={isLocating}>
+              {isLocating ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
+                />
+              ) : (
+                <IcBaselineMyLocationIcon
+                  height={22}
+                  width={22}
+                  color={colorScheme === 'dark' ? '#2dd4bf' : '#0d9488'}
+                />
+              )}
+            </Button>
+          </View>
         )}
       </SafeAreaView>
 

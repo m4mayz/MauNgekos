@@ -91,8 +91,8 @@ export async function syncAllKosFromFirestore(forceSync = false): Promise<void> 
     console.log('Starting full sync from Firestore...');
     const startTime = Date.now();
 
-    // Get all approved kos from Firestore
-    const firestoreKos = await kosService.getApprovedKos();
+    // Get all approved kos from Firestore (direct fetch, bypass SQLite)
+    const firestoreKos = await kosService.getApprovedKosFromFirestore();
     console.log(`Fetched ${firestoreKos.length} kos from Firestore`);
 
     // Batch insert to SQLite

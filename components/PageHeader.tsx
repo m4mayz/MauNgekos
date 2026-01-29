@@ -24,7 +24,9 @@ export function PageHeader({ icon: Icon, title, insets }: PageHeaderProps) {
         <View className="items-center justify-center rounded-2xl bg-primary p-2">
           <Icon width={20} height={20} color="white" />
         </View>
-        <Text className="font-extrabold text-sm uppercase tracking-widest text-muted-foreground">
+        <Text
+          numberOfLines={1}
+          className="font-extrabold text-sm uppercase tracking-widest text-muted-foreground">
           {title}
         </Text>
       </View>

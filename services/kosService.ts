@@ -25,51 +25,178 @@ const COLLECTION_NAME = 'kos';
 const USE_SQLITE = true;
 
 /**
- * Get all approved kos (for map display)
- * SQLite-first strategy: reads from local cache, syncs from Firestore in background
+ * Get all approved kos directly from Firestore (for sync operations)
+ * This bypasses SQLite and always reads from cloud
+ * Also includes kos with status=pending that were previously approved (keeps them on map during re-review)
  */
-export async function getApprovedKos(): Promise<Kos[]> {
-  if (!USE_SQLITE) {
-    // Fallback to direct Firestore query
-    const q = query(
+export async function getApprovedKosFromFirestore(): Promise<Kos[]> {
+  // Query 1: Get approved kos
+  const q1 = query(
+    collection(db, COLLECTION_NAME),
+    where('status', '==', 'approved'),
+    orderBy('createdAt', 'desc')
+  );
+  const snapshot1 = await getDocs(q1);
+  const approvedKos = snapshot1.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Kos[];
+
+  // Query 2: Get pending kos that were previously approved
+  // Note: This requires a composite index in Firestore
+  try {
+    const q2 = query(
       collection(db, COLLECTION_NAME),
-      where('status', '==', 'approved'),
-      orderBy('createdAt', 'desc')
+      where('status', '==', 'pending'),
+      where('previousStatus', '==', 'approved')
     );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
+    const snapshot2 = await getDocs(q2);
+    const pendingButWasApproved = snapshot2.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Kos[];
+
+    // Combine and sort by createdAt
+    const allKos = [...approvedKos, ...pendingButWasApproved];
+    allKos.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+
+    console.log(
+      '[getApprovedKosFromFirestore] Total:',
+      allKos.length,
+      '(approved:',
+      approvedKos.length,
+      ', pending-was-approved:',
+      pendingButWasApproved.length,
+      ')'
+    );
+    return allKos;
+  } catch (error: any) {
+    // If composite index doesn't exist, fallback to client-side filtering
+    if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+      console.warn(
+        '[getApprovedKosFromFirestore] Composite index not found, using client-side filter. Please create index in Firebase Console.'
+      );
+      console.warn('Index URL will be in the error message above.');
+
+      // Fallback: get all pending kos and filter client-side
+      const q2Fallback = query(collection(db, COLLECTION_NAME), where('status', '==', 'pending'));
+      const snapshot2 = await getDocs(q2Fallback);
+      const allPending = snapshot2.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Kos[];
+
+      // Client-side filter for previousStatus === 'approved'
+      const pendingButWasApproved = allPending.filter(
+        (kos: any) => kos.previousStatus === 'approved'
+      );
+
+      const allKos = [...approvedKos, ...pendingButWasApproved];
+      allKos.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+
+      console.log(
+        '[getApprovedKosFromFirestore] Total (fallback):',
+        allKos.length,
+        '(approved:',
+        approvedKos.length,
+        ', pending-was-approved:',
+        pendingButWasApproved.length,
+        ')'
+      );
+      return allKos;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get all approved kos (for map display)
+ * Online-first strategy: when online, fetches from Firebase and updates cache in background
+ * When offline, reads from local SQLite cache
+ * @param forceRefresh - If true, always fetches from Firestore regardless of online status
+ */
+export async function getApprovedKos(forceRefresh: boolean = false): Promise<Kos[]> {
+  if (!USE_SQLITE) {
+    // SQLite disabled - just use Firestore
+    return await getApprovedKosFromFirestore();
+  }
+
+  if (forceRefresh) {
+    // Force refresh: get from Firestore and update SQLite cache
+    console.log('[getApprovedKos] Force refresh - fetching from Firestore and updating cache');
+    try {
+      const freshData = await getApprovedKosFromFirestore();
+
+      // Update SQLite cache (await to ensure completion)
+      if (freshData.length > 0) {
+        try {
+          await sqliteService.insertManyKos(freshData);
+          console.log('[getApprovedKos] Cache updated successfully after force refresh');
+        } catch (cacheError) {
+          console.error('[getApprovedKos] Error updating cache after refresh:', cacheError);
+          // Continue anyway - we have fresh data from Firestore
+        }
+      }
+
+      return freshData;
+    } catch (error) {
+      console.error('[getApprovedKos] Force refresh failed:', error);
+      // Fallback to cached data if Firestore fails
+      try {
+        return await sqliteService.getAllApprovedKos();
+      } catch (sqliteError) {
+        console.error('[getApprovedKos] SQLite fallback also failed:', sqliteError);
+        return [];
+      }
+    }
   }
 
   try {
-    // Read from SQLite first (fast, works offline)
-    const localKos = await sqliteService.getAllApprovedKos();
-
-    // Check if we're online and need to sync
+    // Check if we're online first
     const isOnline = await syncService.isOnline();
-    if (isOnline && (await syncService.shouldSync())) {
-      // Background sync from Firestore to SQLite
-      syncService.syncAllKosFromFirestore().catch((error) => {
-        console.error('Background sync failed:', error);
-      });
+
+    if (isOnline) {
+      console.log('[getApprovedKos] Online detected - fetching fresh data from Firebase first');
+      try {
+        // When online, fetch from Firebase first to ensure fresh data
+        const freshData = await getApprovedKosFromFirestore();
+
+        // Update SQLite cache in background (don't await)
+        if (freshData.length > 0) {
+          sqliteService
+            .insertManyKos(freshData)
+            .then(() => {
+              console.log(
+                '[getApprovedKos] Cache updated with',
+                freshData.length,
+                'kos from Firebase'
+              );
+              syncService.updateLastSyncTimestamp();
+            })
+            .catch((cacheError) => {
+              console.error('[getApprovedKos] Cache update failed:', cacheError);
+            });
+        }
+
+        return freshData;
+      } catch (firebaseError) {
+        console.error(
+          '[getApprovedKos] Firebase fetch failed, falling back to cache:',
+          firebaseError
+        );
+        // Fallback to cache if Firebase fails
+        return await sqliteService.getAllApprovedKos();
+      }
     }
 
+    // Offline: Read from SQLite cache
+    console.log('[getApprovedKos] Offline - using SQLite cache');
+    const localKos = await sqliteService.getAllApprovedKos();
     return localKos;
   } catch (error) {
     console.error('Error reading from SQLite, falling back to Firestore:', error);
-    // Fallback to Firestore on SQLite error
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      where('status', '==', 'approved'),
-      orderBy('createdAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Kos[];
+    // Fallback to Firestore on SQLite error - use combined query
+    return await getApprovedKosFromFirestore();
   }
 }
 
@@ -157,42 +284,42 @@ export async function getFilteredKos(filters: KosFilter): Promise<Kos[]> {
  * Get kos by owner ID (for penyewa dashboard)
  * Uses SQLite cache with Firestore fallback
  */
+/**
+ * Get kos by owner ID
+ * Always reads from Firestore (not cached) to ensure owner sees latest status
+ */
 export async function getKosByOwner(ownerId: string): Promise<Kos[]> {
-  if (!USE_SQLITE) {
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      where('ownerId', '==', ownerId),
-      orderBy('createdAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Kos[];
-  }
+  console.log('[getKosByOwner] Fetching kos for owner:', ownerId);
+
+  // Always use Firestore for owner's kos list (not cached in SQLite)
+  // This ensures owner always sees their kos with latest status (pending/approved/rejected)
+  const q = query(
+    collection(db, COLLECTION_NAME),
+    where('ownerId', '==', ownerId),
+    orderBy('createdAt', 'desc')
+  );
 
   try {
-    return await sqliteService.getKosByOwner(ownerId);
-  } catch (error) {
-    console.error('Error reading from SQLite, falling back to Firestore:', error);
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      where('ownerId', '==', ownerId),
-      orderBy('createdAt', 'desc')
-    );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
+    const result = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Kos[];
+
+    console.log('[getKosByOwner] Found', result.length, 'kos for owner:', ownerId);
+    return result;
+  } catch (error) {
+    console.error('[getKosByOwner] Error fetching from Firestore:', error);
+    throw error;
   }
 }
 
 /**
  * Get pending kos (for admin approval)
  * Uses SQLite cache with Firestore fallback
+ * @param forceRefresh - If true, bypasses cache and reads directly from Firestore, then updates local cache
  */
-export async function getPendingKos(): Promise<Kos[]> {
+export async function getPendingKos(forceRefresh: boolean = false): Promise<Kos[]> {
   if (!USE_SQLITE) {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -206,10 +333,73 @@ export async function getPendingKos(): Promise<Kos[]> {
     })) as Kos[];
   }
 
+  if (forceRefresh) {
+    console.log('[getPendingKos] Force refresh - fetching from Firestore and updating cache');
+    try {
+      const q = query(
+        collection(db, COLLECTION_NAME),
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      const freshData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Kos[];
+
+      // Update SQLite cache in background
+      if (freshData.length > 0) {
+        sqliteService
+          .insertManyKos(freshData)
+          .then(() => console.log('[getPendingKos] Cache updated successfully'))
+          .catch((cacheError) => console.error('[getPendingKos] Cache update failed:', cacheError));
+      }
+
+      return freshData;
+    } catch (error) {
+      console.error('[getPendingKos] Force refresh failed, falling back to cache:', error);
+      return await sqliteService.getKosByStatus('pending');
+    }
+  }
+
   try {
+    // Check if online
+    const isOnline = await syncService.isOnline();
+
+    if (isOnline) {
+      console.log('[getPendingKos] Online - fetching fresh data from Firebase');
+      try {
+        const q = query(
+          collection(db, COLLECTION_NAME),
+          where('status', '==', 'pending'),
+          orderBy('createdAt', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        const freshData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Kos[];
+
+        // Update cache in background
+        if (freshData.length > 0) {
+          sqliteService
+            .insertManyKos(freshData)
+            .then(() => console.log('[getPendingKos] Cache updated'))
+            .catch((err) => console.error('[getPendingKos] Cache update failed:', err));
+        }
+
+        return freshData;
+      } catch (firebaseError) {
+        console.error('[getPendingKos] Firebase fetch failed, using cache:', firebaseError);
+        return await sqliteService.getKosByStatus('pending');
+      }
+    }
+
+    // Offline - use cache
+    console.log('[getPendingKos] Offline - using cache');
     return await sqliteService.getKosByStatus('pending');
   } catch (error) {
-    console.error('Error reading from SQLite, falling back to Firestore:', error);
+    console.error('[getPendingKos] Error, falling back to Firestore:', error);
     const q = query(
       collection(db, COLLECTION_NAME),
       where('status', '==', 'pending'),
@@ -503,9 +693,16 @@ async function syncUnsaveToFirestore(userId: string, kosId: string): Promise<voi
 }
 
 /**
- * Get saved kos by user ID (with cache-first strategy)
+ * Get saved kos by user ID (with cache-first strategy + auto-update)
+ * @param userId - User ID
+ * @param forceRefresh - If true, bypass cache and force fetch from Firestore
+ * @param onDataUpdated - Callback triggered when fresh data arrives from Firestore (for auto UI update)
  */
-export async function getSavedKos(userId: string, forceRefresh: boolean = false): Promise<Kos[]> {
+export async function getSavedKos(
+  userId: string,
+  forceRefresh: boolean = false,
+  onDataUpdated?: (freshData: Kos[]) => void
+): Promise<Kos[]> {
   console.log('[getSavedKos] Fetching saved kos for user:', userId);
   const cacheKey = `savedKos_${userId}`;
 
@@ -523,8 +720,8 @@ export async function getSavedKos(userId: string, forceRefresh: boolean = false)
     }
   }
 
-  // Fetch from Firestore in background to sync cache
-  fetchAndCacheSavedKos(userId, cacheKey).catch(console.error);
+  // Fetch from Firestore in background to sync cache and trigger callback
+  fetchAndCacheSavedKos(userId, cacheKey, onDataUpdated).catch(console.error);
 
   // If cache is empty or force refresh, wait for Firestore
   if (savedKosIds.length === 0 || forceRefresh) {
@@ -553,22 +750,34 @@ export async function getSavedKos(userId: string, forceRefresh: boolean = false)
   const kosPromises = savedKosIds.map((kosId: string) => getKosById(kosId));
   const kosResults = await Promise.all(kosPromises);
   console.log(
-    '[getSavedKos] Fetched kos results:',
+    '[getSavedKos] 📦 Fetched kos results:',
     kosResults.map((k) => (k ? { id: k.id, name: k.name, status: k.status } : null))
   );
 
-  // Filter out null values (deleted kos) and only return approved ones
-  const filteredKos = kosResults.filter(
-    (kos): kos is Kos => kos !== null && kos.status === 'approved'
+  // Filter out null values (deleted kos) - show ALL saved kos regardless of status
+  const filteredKos = kosResults.filter((kos): kos is Kos => kos !== null);
+
+  const pendingCount = filteredKos.filter((k) => k.status === 'pending').length;
+  const rejectedCount = filteredKos.filter((k) => k.status === 'rejected').length;
+  const approvedCount = filteredKos.filter((k) => k.status === 'approved').length;
+
+  console.log(
+    '[getSavedKos] ✅ Returning all saved kos:',
+    filteredKos.length,
+    `(approved: ${approvedCount}, pending: ${pendingCount}, rejected: ${rejectedCount})`
   );
-  console.log('[getSavedKos] Filtered approved kos count:', filteredKos.length);
+
   return filteredKos;
 }
 
 /**
- * Background fetch to sync cache with Firestore
+ * Background fetch to sync cache with Firestore and trigger UI update
  */
-async function fetchAndCacheSavedKos(userId: string, cacheKey: string): Promise<void> {
+async function fetchAndCacheSavedKos(
+  userId: string,
+  cacheKey: string,
+  onDataUpdated?: (freshData: Kos[]) => void
+): Promise<void> {
   const userRef = doc(db, 'users', userId);
   const userSnap = await getDoc(userRef);
 
@@ -576,7 +785,21 @@ async function fetchAndCacheSavedKos(userId: string, cacheKey: string): Promise<
     const userData = userSnap.data();
     const savedKosIds = userData.savedKos || [];
     await AsyncStorage.setItem(cacheKey, JSON.stringify(savedKosIds));
-    console.log('[fetchAndCacheSavedKos] Cache updated from Firestore');
+    console.log('[fetchAndCacheSavedKos] Cache updated from Firestore, IDs:', savedKosIds.length);
+
+    // If callback provided, fetch full kos details and trigger UI update
+    if (onDataUpdated && savedKosIds.length > 0) {
+      const kosPromises = savedKosIds.map((kosId: string) => getKosById(kosId));
+      const kosResults = await Promise.all(kosPromises);
+      // Return ALL saved kos regardless of status
+      const filteredKos = kosResults.filter((kos): kos is Kos => kos !== null);
+      console.log('[fetchAndCacheSavedKos] Triggering callback with', filteredKos.length, 'kos');
+      onDataUpdated(filteredKos);
+    } else if (onDataUpdated && savedKosIds.length === 0) {
+      // No saved kos, trigger callback with empty array
+      console.log('[fetchAndCacheSavedKos] Triggering callback with empty array');
+      onDataUpdated([]);
+    }
   }
 }
 
@@ -626,4 +849,68 @@ export async function clearSavedKosCache(userId: string): Promise<void> {
   const cacheKey = `savedKos_${userId}`;
   await AsyncStorage.removeItem(cacheKey);
   console.log('[clearSavedKosCache] Cache cleared for user:', userId);
+}
+
+/**
+ * Submit kos from draft (creates new kos with pending status)
+ * Used when penyewa clicks "Ajukan" button
+ */
+export async function submitKosFromDraft(
+  data: Omit<Kos, 'id' | 'status' | 'createdAt' | 'updatedAt'>
+): Promise<string> {
+  return await createKos(data);
+}
+
+/**
+ * Resubmit kos after editing (updates kos and sets status back to pending)
+ * Preserves visibility if previous status was 'approved'
+ * Used when penyewa edits approved/rejected kos and clicks "Ajukan"
+ */
+export async function resubmitKos(
+  id: string,
+  data: Partial<Omit<Kos, 'id' | 'createdAt' | 'status'>>
+): Promise<void> {
+  const isOnline = await syncService.isOnline();
+
+  // Get current kos to check previous status
+  const currentKos = await getKosById(id);
+  const wasApproved = currentKos?.status === 'approved';
+
+  if (isOnline) {
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await updateDoc(docRef, {
+      ...data,
+      status: 'pending' as KosStatus,
+      // Preserve previous status info for admin reference (optional)
+      previousStatus: wasApproved ? 'approved' : currentKos?.status,
+      updatedAt: serverTimestamp(),
+    });
+
+    // Update SQLite cache
+    if (USE_SQLITE) {
+      try {
+        await sqliteService.updateKos(id, { ...data, status: 'pending' } as any);
+      } catch (error) {
+        console.error('Error updating kos in SQLite:', error);
+      }
+    }
+  } else {
+    // Offline: queue for sync
+    if (USE_SQLITE) {
+      await sqliteService.addToSyncQueue('update', COLLECTION_NAME, id, {
+        ...data,
+        status: 'pending',
+        previousStatus: wasApproved ? 'approved' : currentKos?.status,
+      });
+      await sqliteService.updateKos(id, { ...data, status: 'pending' } as any);
+    }
+  }
+}
+
+/**
+ * Check if a kos can be edited (not pending)
+ */
+export async function canEditKos(kosId: string): Promise<boolean> {
+  const kos = await getKosById(kosId);
+  return kos ? kos.status !== 'pending' : false;
 }

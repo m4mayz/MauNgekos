@@ -1,7 +1,8 @@
 import { View, Alert, ScrollView, Pressable, Image, ActivityIndicator } from 'react-native';
-import { useState } from 'react';
-import { router } from 'expo-router';
+import React, { useState, useEffect, useCallback } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { getSavedKos } from '@/services/kosService';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -31,6 +32,26 @@ export default function ProfileScreen() {
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
+  const [savedKosCount, setSavedKosCount] = useState(0);
+
+  // Load saved kos count when screen focuses
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        console.log('[Profile] Loading saved kos count...');
+        getSavedKos(user.id)
+          .then((kos) => {
+            console.log('[Profile] Saved kos count:', kos.length);
+            setSavedKosCount(kos.length);
+          })
+          .catch((error) => {
+            console.error('[Profile] Error loading saved kos count:', error);
+          });
+      } else {
+        setSavedKosCount(0);
+      }
+    }, [user])
+  );
 
   const handleSignOut = () => {
     Alert.alert('Keluar', 'Apakah Anda yakin ingin keluar?', [
@@ -74,7 +95,7 @@ export default function ProfileScreen() {
   }) => (
     <>
       <Pressable onPress={onPress} className="flex-row items-center gap-3 py-4 active:opacity-70">
-        <Icon size={20} color={colorScheme === 'dark' ? 'white' : 'black'} />
+        <Icon size={20} color={colorScheme === 'dark' ? '#14b8a6' : 'black'} />
         <Text className="flex-1 text-base">{title}</Text>
         <ChevronRight size={18} color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} />
       </Pressable>
@@ -87,7 +108,11 @@ export default function ProfileScreen() {
     return (
       <View className="flex-1 bg-background">
         <LinearGradient
-          colors={['#0a3d3d', '#0f1a1a', '#000000']}
+          colors={
+            colorScheme === 'dark'
+              ? ['#0a3d3d', '#0f1a1a', '#000000']
+              : ['#e0f2f1', '#b2dfdb', '#80cbc4']
+          }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           className="flex-1">
@@ -212,7 +237,9 @@ export default function ProfileScreen() {
                 </AvatarFallback>
               </Avatar>
             </View>
-            <Text className="font-extrabold text-xl text-white">{user.name}</Text>
+            <Text numberOfLines={1} className="font-extrabold text-xl text-white">
+              {user.name}
+            </Text>
             <Text className="mt-0.5 text-xs text-white/80">{user.email}</Text>
           </View>
         </LinearGradient>
@@ -225,7 +252,7 @@ export default function ProfileScreen() {
               <View className="mb-1.5 h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
                 <Bookmark size={18} color="#14b8a6" strokeWidth={2.5} />
               </View>
-              <Text className="font-bold text-xl text-foreground">0</Text>
+              <Text className="font-bold text-xl text-foreground">{savedKosCount}</Text>
               <Text className="text-[10px] text-muted-foreground">Kos Disimpan</Text>
             </View>
 
@@ -326,7 +353,9 @@ export default function ProfileScreen() {
               ) : (
                 <>
                   <LogOut size={18} color="#fff" strokeWidth={2.5} />
-                  <Text className="font-bold text-sm text-white">Keluar dari Akun</Text>
+                  <Text numberOfLines={1} className="font-bold text-sm text-white">
+                    Keluar dari Akun
+                  </Text>
                 </>
               )}
             </LinearGradient>

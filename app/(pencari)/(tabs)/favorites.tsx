@@ -84,34 +84,20 @@ export default function FavoritesScreen() {
     };
   });
 
-  const loadSavedKos = async () => {
-    if (!user) {
-      console.log('[Favorites] No user logged in');
-      setLoading(false);
-      return;
-    }
-
-    console.log('[Favorites] Loading saved kos for user:', user.id);
+  const handleRefresh = async () => {
+    if (!user) return;
+    setRefreshing(true);
     try {
-      const kos = await getSavedKos(user.id);
-      console.log('[Favorites] Loaded saved kos count:', kos.length);
-      console.log(
-        '[Favorites] Saved kos:',
-        kos.map((k) => ({ id: k.id, name: k.name, status: k.status }))
-      );
+      // Force refresh from Firebase, bypassing cache
+      const kos = await getSavedKos(user.id, true);
+      console.log('[Favorites] Force refreshed saved kos count:', kos.length);
       setSavedKos(kos);
     } catch (error) {
-      console.error('[Favorites] Error loading saved kos:', error);
+      console.error('[Favorites] Error refreshing saved kos:', error);
       Alert.alert('Error', 'Gagal memuat kos favorit');
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadSavedKos();
-    setRefreshing(false);
   };
 
   const handleUnsave = async (kosId: string, event: any) => {
@@ -135,18 +121,38 @@ export default function FavoritesScreen() {
     }
   };
 
-  // Reload when screen comes into focus
+  // Reload when screen comes into focus - always force refresh to ensure latest data
   useFocusEffect(
     useCallback(() => {
-      console.log('[Favorites] Screen focused, reloading...');
+      if (!user) {
+        console.log('[Favorites] No user logged in');
+        setLoading(false);
+        return;
+      }
+
+      console.log('[Favorites] 🔄 Screen focused, force refreshing saved kos for user:', user.id);
       setLoading(true);
-      loadSavedKos();
+
+      // Force refresh to ensure we have latest data after save/unsave
+      getSavedKos(user.id, true)
+        .then((kos) => {
+          console.log('[Favorites] ✅ Successfully loaded', kos.length, 'saved kos');
+          console.log(
+            '[Favorites] 📋 Kos details:',
+            kos.map((k) => ({ id: k.id, name: k.name, status: k.status }))
+          );
+          setSavedKos(kos);
+        })
+        .catch((error) => {
+          console.error('[Favorites] ❌ Error loading saved kos:', error);
+          Alert.alert('Error', 'Gagal memuat kos favorit');
+        })
+        .finally(() => {
+          console.log('[Favorites] ⏹️ Loading finished');
+          setLoading(false);
+        });
     }, [user])
   );
-
-  useEffect(() => {
-    loadSavedKos();
-  }, [user]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -173,7 +179,7 @@ export default function FavoritesScreen() {
     return a.name.localeCompare(b.name);
   });
 
-  const iconColor = colorScheme === 'dark' ? 'white' : 'black';
+  const iconColor = colorScheme === 'dark' ? '#14b8a6' : 'black';
   const mutedColor = colorScheme === 'dark' ? '#9CA3AF' : '#6B7280';
 
   // Guest user - show login prompt
@@ -185,7 +191,7 @@ export default function FavoritesScreen() {
         {/* Empty State */}
         <View className="flex-1 items-center justify-center px-6 py-10">
           <View className="mb-6 items-center justify-center rounded-full bg-primary/10 p-6">
-            <Bookmark size={48} className="text-primary" strokeWidth={1.5} />
+            <Bookmark size={48} color={iconColor} strokeWidth={1.5} />
           </View>
           <Text className="mb-2 font-bold text-lg text-foreground">Belum ada kos favorit</Text>
           <Text className="mb-6 max-w-[260px] text-center text-sm leading-relaxed text-muted-foreground">
@@ -233,9 +239,11 @@ export default function FavoritesScreen() {
           }>
           <View className="flex-1 items-center justify-center px-6 py-10">
             <View className="mb-6 items-center justify-center rounded-full bg-primary/10 p-6">
-              <Search size={48} className="text-primary" strokeWidth={1.5} />
+              <Search size={48} color={iconColor} strokeWidth={1.5} />
             </View>
-            <Text className="mb-2 font-bold text-lg text-foreground">Belum ada kos favorit</Text>
+            <Text numberOfLines={1} className="mb-2 font-bold text-lg text-foreground">
+              Belum ada kos favorit
+            </Text>
             <Text className="mb-6 max-w-[260px] text-center text-sm leading-relaxed text-muted-foreground">
               Simpan kos impianmu di sini agar mudah ditemukan kembali saat kamu butuh
             </Text>
@@ -288,7 +296,7 @@ export default function FavoritesScreen() {
                   ? 'font-bold text-primary'
                   : 'font-bold text-muted-foreground'
               }`}>
-              Terendah
+              Harga Terendah
             </Text>
           </Pressable>
 
@@ -306,7 +314,7 @@ export default function FavoritesScreen() {
                   ? 'font-bold text-primary'
                   : 'font-bold text-muted-foreground'
               }`}>
-              Tertinggi
+              Harga Tertinggi
             </Text>
           </Pressable>
 
@@ -335,7 +343,9 @@ export default function FavoritesScreen() {
         ItemSeparatorComponent={() => <View className="h-4" />}
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => router.push('/(pencari)/(tabs)/home')}
+            onPress={() =>
+              router.push({ pathname: '/(pencari)/(tabs)/home', params: { kosId: item.id } })
+            }
             className="flex-row gap-4 rounded-xl border border-border bg-card p-3 shadow-sm active:opacity-80">
             {/* Thumbnail */}
             <View className="relative shrink-0">

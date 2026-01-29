@@ -1,4 +1,5 @@
-import { getDatabase } from '@/lib/database';
+import * as SQLite from 'expo-sqlite';
+import { getDatabase, isDatabaseInitialized, initDatabase } from '@/lib/database';
 import { serializeKosForSQLite, deserializeKosFromSQLite, type SQLiteKosRow } from '@/lib/utils';
 import type { Kos, KosFilter } from '@/types';
 
@@ -7,12 +8,23 @@ import type { Kos, KosFilter } from '@/types';
  * Handles all local database operations for kos data
  */
 
+/**
+ * Ensure database is initialized before operations
+ */
+async function ensureDatabaseReady(): Promise<void> {
+  if (!isDatabaseInitialized()) {
+    console.warn('Database not initialized, initializing now...');
+    await initDatabase();
+  }
+}
+
 // ==================== KOS CRUD OPERATIONS ====================
 
 /**
  * Insert or replace a kos in SQLite
  */
 export async function insertKos(kos: Kos): Promise<void> {
+  await ensureDatabaseReady();
   const db = getDatabase();
   const row = serializeKosForSQLite(kos);
 
@@ -55,54 +67,74 @@ export async function insertKos(kos: Kos): Promise<void> {
 
 /**
  * Batch insert multiple kos (for sync operations)
+ * Uses prepared statement for efficiency without explicit transaction to avoid nesting conflicts
  */
 export async function insertManyKos(kosList: Kos[]): Promise<void> {
+  if (kosList.length === 0) {
+    console.log('[insertManyKos] Empty list, skipping');
+    return;
+  }
+
+  await ensureDatabaseReady();
   const db = getDatabase();
 
+  if (!db) {
+    throw new Error('Database not available');
+  }
+
+  let statement: SQLite.SQLiteStatement | null = null;
+
   try {
-    await db.withTransactionAsync(async () => {
-      const statement = await db.prepareAsync(`
-        INSERT OR REPLACE INTO kos (
-          id, ownerId, ownerName, ownerPhone, name, address, 
-          latitude, longitude, type, priceMin, priceMax,
-          facilities, totalRooms, availableRooms,
-          images, description, status, createdAt, updatedAt, syncedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
+    // Prepare statement once for all inserts
+    statement = await db.prepareAsync(`
+      INSERT OR REPLACE INTO kos (
+        id, ownerId, ownerName, ownerPhone, name, address, 
+        latitude, longitude, type, priceMin, priceMax,
+        facilities, totalRooms, availableRooms,
+        images, description, status, createdAt, updatedAt, syncedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-      for (const kos of kosList) {
-        const row = serializeKosForSQLite(kos);
-        await statement.executeAsync([
-          row.id,
-          row.ownerId,
-          row.ownerName,
-          row.ownerPhone,
-          row.name,
-          row.address,
-          row.latitude,
-          row.longitude,
-          row.type,
-          row.priceMin,
-          row.priceMax,
-          row.facilities,
-          row.totalRooms,
-          row.availableRooms,
-          row.images,
-          row.description,
-          row.status,
-          row.createdAt,
-          row.updatedAt,
-          row.syncedAt,
-        ]);
-      }
+    // Execute batch inserts - SQLite handles implicit transaction
+    for (const kos of kosList) {
+      const row = serializeKosForSQLite(kos);
+      await statement.executeAsync([
+        row.id,
+        row.ownerId,
+        row.ownerName,
+        row.ownerPhone,
+        row.name,
+        row.address,
+        row.latitude,
+        row.longitude,
+        row.type,
+        row.priceMin,
+        row.priceMax,
+        row.facilities,
+        row.totalRooms,
+        row.availableRooms,
+        row.images,
+        row.description,
+        row.status,
+        row.createdAt,
+        row.updatedAt,
+        row.syncedAt,
+      ]);
+    }
 
-      await statement.finalizeAsync();
-    });
-
-    console.log(`Batch inserted ${kosList.length} kos to SQLite`);
+    console.log(`✅ Batch inserted ${kosList.length} kos to SQLite`);
   } catch (error) {
-    console.error('Error batch inserting kos:', error);
+    console.error('❌ Error batch inserting kos:', error);
     throw error;
+  } finally {
+    // Always finalize statement to release resources
+    if (statement) {
+      try {
+        await statement.finalizeAsync();
+      } catch (finalizeError) {
+        console.error('Error finalizing statement:', finalizeError);
+      }
+    }
   }
 }
 
@@ -147,6 +179,7 @@ export async function deleteKos(id: string): Promise<void> {
  * Get a single kos by ID
  */
 export async function getKosById(id: string): Promise<Kos | null> {
+  await ensureDatabaseReady();
   const db = getDatabase();
 
   try {
@@ -166,6 +199,7 @@ export async function getKosById(id: string): Promise<Kos | null> {
  * Get all approved kos from SQLite
  */
 export async function getAllApprovedKos(): Promise<Kos[]> {
+  await ensureDatabaseReady();
   const db = getDatabase();
 
   try {
@@ -185,6 +219,7 @@ export async function getAllApprovedKos(): Promise<Kos[]> {
  * Get kos by owner ID
  */
 export async function getKosByOwner(ownerId: string): Promise<Kos[]> {
+  await ensureDatabaseReady();
   const db = getDatabase();
 
   try {
@@ -224,6 +259,7 @@ export async function getKosByStatus(status: 'pending' | 'approved' | 'rejected'
  * Uses SQL WHERE clauses for simple filters, then client-side filtering for complex ones
  */
 export async function getFilteredKos(filters: KosFilter): Promise<Kos[]> {
+  await ensureDatabaseReady();
   const db = getDatabase();
 
   try {
@@ -308,6 +344,7 @@ export async function removeFavorite(userId: string, kosId: string): Promise<voi
  * Get all saved kos for a user (JOIN with kos table)
  */
 export async function getUserFavorites(userId: string): Promise<Kos[]> {
+  await ensureDatabaseReady();
   const db = getDatabase();
 
   try {

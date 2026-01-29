@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Kos,
   KosType,
@@ -28,14 +29,27 @@ import {
   ROOM_FACILITY_KEYS,
   COMMON_FACILITY_KEYS,
 } from '@/types';
-import { getKosById, updateKos, createGeoPoint } from '@/services/kosService';
+import { getKosById, resubmitKos, createGeoPoint } from '@/services/kosService';
+import { saveDraft, getDraft, KosDraft } from '@/services/draftService';
 import { uploadImage, deleteImage } from '@/lib/supabase';
 import { MaterialIcons } from '@expo/vector-icons';
-import { X, MapPin, Home, Plus, ChevronLeft, Check, Compass } from 'lucide-react-native';
+import {
+  X,
+  MapPin,
+  Home,
+  Plus,
+  ChevronLeft,
+  Check,
+  Compass,
+  Save,
+  Send,
+  Lock,
+} from 'lucide-react-native';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
+import IcBaselineWhatsappIcon from '@/components/icons/ic/baseline-whatsapp';
 
 type KosTypeOption = {
   value: KosType;
@@ -156,12 +170,14 @@ export default function EditKosScreen() {
   const mapRef = useRef<MapView>(null);
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(false); // For Simpan (save draft)
+  const [submitting, setSubmitting] = useState(false); // For Ajukan (resubmit)
   const [isLocating, setIsLocating] = useState(false);
   const [images, setImages] = useState<string[]>([]);
   const [newImages, setNewImages] = useState<string[]>([]);
+  const [kosStatus, setKosStatus] = useState<'pending' | 'approved' | 'rejected'>('approved');
 
-  const iconColor = colorScheme === 'dark' ? 'white' : 'black';
+  const iconColor = colorScheme === 'dark' ? '#14b8a6' : 'black';
   const mutedColor = colorScheme === 'dark' ? '#9CA3AF' : '#6B7280';
 
   // Tab state for facilities
@@ -200,19 +216,43 @@ export default function EditKosScreen() {
     try {
       const kos = await getKosById(id!);
       if (kos) {
-        setName(kos.name);
-        setOwnerPhone(kos.ownerPhone || '');
-        setAddress(kos.address);
-        setDescription(kos.description || '');
-        setType(kos.type);
-        setPriceMin(kos.priceMin.toString());
-        setPriceMax(kos.priceMax.toString());
-        setTotalRooms(kos.totalRooms.toString());
-        setAvailableRooms(kos.availableRooms.toString());
-        setSelectedFacilities(kos.facilities);
-        setImages(kos.images);
-        setLatitude(kos.location.latitude.toString());
-        setLongitude(kos.location.longitude.toString());
+        setKosStatus(kos.status);
+
+        // Try loading draft first (for pending status)
+        const draft = await getDraft(id!);
+        if (draft && kos.status !== 'pending') {
+          // Use draft data if kos is not pending
+          setName(draft.name);
+          setOwnerPhone(draft.ownerPhone);
+          setAddress(draft.address);
+          setDescription(draft.description || '');
+          setType(draft.type);
+          setPriceMin(draft.priceMin.toString());
+          setPriceMax(draft.priceMax.toString());
+          setTotalRooms(draft.totalRooms.toString());
+          setAvailableRooms(draft.availableRooms.toString());
+          setSelectedFacilities(draft.facilities);
+          setImages(draft.existingImages || []);
+          setNewImages(draft.images || []);
+          setLatitude(draft.latitude.toString());
+          setLongitude(draft.longitude.toString());
+        } else {
+          // Use kos data from database
+          setName(kos.name);
+          setOwnerPhone(kos.ownerPhone || '');
+          setAddress(kos.address);
+          setDescription(kos.description || '');
+          setType(kos.type);
+          setPriceMin(kos.priceMin.toString());
+          setPriceMax(kos.priceMax.toString());
+          setTotalRooms(kos.totalRooms.toString());
+          setAvailableRooms(kos.availableRooms.toString());
+          setSelectedFacilities(kos.facilities);
+          setImages(kos.images);
+          setLatitude(kos.location.latitude.toString());
+          setLongitude(kos.location.longitude.toString());
+        }
+
         setTempLocation({
           latitude: kos.location.latitude,
           longitude: kos.location.longitude,
@@ -355,11 +395,68 @@ export default function EditKosScreen() {
     return true;
   };
 
-  const handleSubmit = async () => {
+  const handleSave = async () => {
     if (!validateForm()) return;
     if (!user || !id) return;
 
+    if (kosStatus === 'pending') {
+      Alert.alert(
+        'Tidak Bisa Edit',
+        'Kos sedang dalam status pending. Tunggu persetujuan admin terlebih dahulu.'
+      );
+      return;
+    }
+
     setSaving(true);
+    try {
+      const draft: KosDraft = {
+        kosId: id,
+        ownerId: user.id,
+        ownerName: user.name,
+        ownerPhone: ownerPhone.trim(),
+        name: name.trim(),
+        address: address.trim(),
+        description: description.trim() || undefined,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        type,
+        priceMin: parseInt(priceMin),
+        priceMax: parseInt(priceMax),
+        totalRooms: parseInt(totalRooms),
+        availableRooms: parseInt(availableRooms),
+        facilities: selectedFacilities,
+        images: newImages,
+        existingImages: images,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      await saveDraft(id, draft);
+      Alert.alert(
+        'Berhasil',
+        'Perubahan disimpan secara lokal. Klik "Ajukan" untuk mengirim ke admin.'
+      );
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      Alert.alert('Error', 'Gagal menyimpan perubahan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResubmit = async () => {
+    if (!validateForm()) return;
+    if (!user || !id) return;
+
+    if (kosStatus === 'pending') {
+      Alert.alert(
+        'Sedang Pending',
+        'Kos ini sudah diajukan dan sedang menunggu persetujuan admin.'
+      );
+      return;
+    }
+
+    setSubmitting(true);
     try {
       // Upload new images
       const uploadedImages: string[] = [...images];
@@ -371,8 +468,8 @@ export default function EditKosScreen() {
         }
       }
 
-      // Update kos
-      await updateKos(id, {
+      // Resubmit kos (updates and sets status to pending)
+      await resubmitKos(id, {
         ownerPhone: ownerPhone.trim(),
         name: name.trim(),
         address: address.trim(),
@@ -387,14 +484,14 @@ export default function EditKosScreen() {
         images: uploadedImages,
       });
 
-      Alert.alert('Berhasil', 'Kos berhasil diperbarui', [
+      Alert.alert('Berhasil', 'Perubahan berhasil diajukan dan menunggu persetujuan admin', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error) {
-      console.error('Error updating kos:', error);
-      Alert.alert('Error', 'Gagal memperbarui kos');
+      console.error('Error resubmitting kos:', error);
+      Alert.alert('Error', 'Gagal mengajukan perubahan');
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
@@ -410,16 +507,55 @@ export default function EditKosScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-background">
-      <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
+      <View style={{ height: insets.top }} />
+      <ScrollView
+        className="flex-1"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         {/* Custom Header */}
-        <View
-          className="flex-row items-center gap-2 px-2 pb-4"
-          style={{ paddingTop: insets.top + 10 }}>
-          <Button variant="ghost" size="icon" onPress={() => router.back()}>
-            <ChevronLeft size={24} color={iconColor} />
-          </Button>
-          <Text className="font-semibold text-lg">Edit Kos</Text>
+        <View className="flex-row items-center justify-between px-2 pb-4">
+          <View className="flex-row items-center gap-2">
+            <Button variant="ghost" size="icon" onPress={() => router.back()}>
+              <ChevronLeft size={24} color={iconColor} />
+            </Button>
+            <Text className="font-semibold text-lg">Edit Kos</Text>
+          </View>
+          <Badge
+            className="mr-2 rounded-lg px-2 py-1"
+            style={{
+              backgroundColor:
+                kosStatus === 'pending'
+                  ? '#F59E0B'
+                  : kosStatus === 'approved'
+                    ? '#10B981'
+                    : '#EF4444',
+            }}>
+            <Text className="font-semibold text-xs text-white">
+              {kosStatus === 'pending'
+                ? 'Menunggu'
+                : kosStatus === 'approved'
+                  ? 'Disetujui'
+                  : 'Ditolak'}
+            </Text>
+          </Badge>
         </View>
+
+        {/* Pending Lock Banner */}
+        {kosStatus === 'pending' && (
+          <View className="mx-4 mb-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4">
+            <View className="flex-row items-center gap-3">
+              <Lock size={20} color="#F59E0B" />
+              <View className="flex-1">
+                <Text className="font-semibold text-sm text-yellow-700 dark:text-yellow-500">
+                  Kos Sedang Ditinjau
+                </Text>
+                <Text className="text-xs text-yellow-600 dark:text-yellow-400">
+                  Editing tidak dapat dilakukan sampai admin selesai meninjau
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         <View className="gap-6 px-4 pb-4">
           <View>
@@ -435,7 +571,8 @@ export default function EditKosScreen() {
                       variant="destructive"
                       size="icon"
                       className="absolute -right-2 -top-2 mt-2 h-6 w-6 rounded-full"
-                      onPress={() => removeExistingImage(index)}>
+                      onPress={() => removeExistingImage(index)}
+                      disabled={kosStatus === 'pending'}>
                       <X size={12} color="white" />
                     </Button>
                   </View>
@@ -447,15 +584,17 @@ export default function EditKosScreen() {
                       variant="destructive"
                       size="icon"
                       className="absolute -right-2 -top-2 mt-2 h-6 w-6 rounded-full"
-                      onPress={() => removeNewImage(index)}>
+                      onPress={() => removeNewImage(index)}
+                      disabled={kosStatus === 'pending'}>
                       <X size={12} color="white" />
                     </Button>
                   </View>
                 ))}
                 <Pressable
                   onPress={pickImage}
+                  disabled={kosStatus === 'pending'}
                   className="h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-border">
-                  <Plus size={24} color={iconColor} />
+                  <Plus size={24} color={kosStatus === 'pending' ? mutedColor : iconColor} />
                   <Text className="mt-1 text-xs text-muted-foreground">Tambah</Text>
                 </Pressable>
               </View>
@@ -473,6 +612,7 @@ export default function EditKosScreen() {
               onChangeText={setName}
               leftIcon={<Home size={20} color={mutedColor} />}
               aria-labelledby="name"
+              editable={kosStatus !== 'pending'}
             />
           </View>
 
@@ -486,8 +626,9 @@ export default function EditKosScreen() {
               value={ownerPhone}
               onChangeText={setOwnerPhone}
               keyboardType="phone-pad"
-              leftIcon={<MaterialIcons name="whatsapp" size={20} color={mutedColor} />}
+              leftIcon={<IcBaselineWhatsappIcon height={20} width={20} color={mutedColor} />}
               aria-labelledby="ownerPhone"
+              editable={kosStatus !== 'pending'}
             />
             <Text className="text-xs text-muted-foreground">
               Format: 08xxx atau 628xxx (akan digunakan untuk tombol WhatsApp)
@@ -506,6 +647,7 @@ export default function EditKosScreen() {
               className="min-h-[80px] text-sm"
               aria-labelledby="address"
               placeholderTextColor={mutedColor}
+              editable={kosStatus !== 'pending'}
             />
           </View>
 
@@ -519,6 +661,7 @@ export default function EditKosScreen() {
               className="min-h-[100px] text-sm"
               aria-labelledby="description"
               placeholderTextColor={mutedColor}
+              editable={kosStatus !== 'pending'}
             />
           </View>
 
@@ -532,6 +675,7 @@ export default function EditKosScreen() {
                 <Pressable
                   key={option.value}
                   onPress={() => setType(option.value)}
+                  disabled={kosStatus === 'pending'}
                   className={`flex-1 items-center rounded-xl border-2 p-3 ${
                     type === option.value ? 'border-primary bg-primary/5' : 'border-border'
                   }`}>
@@ -563,6 +707,7 @@ export default function EditKosScreen() {
                   onChangeText={setPriceMin}
                   keyboardType="numeric"
                   className="pl-10"
+                  editable={kosStatus !== 'pending'}
                 />
               </View>
               <Text className="self-center text-muted-foreground">-</Text>
@@ -576,6 +721,7 @@ export default function EditKosScreen() {
                   onChangeText={setPriceMax}
                   keyboardType="numeric"
                   className="pl-10"
+                  editable={kosStatus !== 'pending'}
                 />
               </View>
             </View>
@@ -594,6 +740,7 @@ export default function EditKosScreen() {
                   value={totalRooms}
                   onChangeText={setTotalRooms}
                   keyboardType="numeric"
+                  editable={kosStatus !== 'pending'}
                 />
               </View>
               <View className="flex-1 gap-1">
@@ -603,6 +750,7 @@ export default function EditKosScreen() {
                   value={availableRooms}
                   onChangeText={setAvailableRooms}
                   keyboardType="numeric"
+                  editable={kosStatus !== 'pending'}
                 />
               </View>
             </View>
@@ -626,6 +774,7 @@ export default function EditKosScreen() {
                     <Pressable
                       key={facility}
                       onPress={() => toggleFacility(facility)}
+                      disabled={kosStatus === 'pending'}
                       className={`shrink-0 flex-row items-center gap-2 rounded-lg border px-3 py-2 ${
                         selectedFacilities.includes(facility)
                           ? 'border-primary bg-primary/5'
@@ -655,6 +804,7 @@ export default function EditKosScreen() {
                     <Pressable
                       key={facility}
                       onPress={() => toggleFacility(facility)}
+                      disabled={kosStatus === 'pending'}
                       className={`shrink-0 flex-row items-center gap-2 rounded-lg border px-3 py-2 ${
                         selectedFacilities.includes(facility)
                           ? 'border-primary bg-primary/5'
@@ -685,7 +835,11 @@ export default function EditKosScreen() {
           <View className="gap-2">
             <Label>Lokasi Kos</Label>
             <Text className="mb-2 text-xs text-muted-foreground">Pilih lokasi kos pada peta</Text>
-            <Button variant="outline" onPress={openLocationPicker} className="flex-row gap-2">
+            <Button
+              variant="outline"
+              onPress={openLocationPicker}
+              className="flex-row gap-2"
+              disabled={kosStatus === 'pending'}>
               <MapPin size={20} color={mutedColor} />
               <Text>{latitude && longitude ? 'Ubah Lokasi' : 'Pilih Lokasi'}</Text>
             </Button>
@@ -696,14 +850,47 @@ export default function EditKosScreen() {
             )}
           </View>
 
-          {/* Submit Button */}
-          <Button onPress={handleSubmit} disabled={saving} size="lg" className="mb-5 mt-4">
-            {saving ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text className="font-semibold text-primary-foreground">Simpan Perubahan</Text>
-            )}
-          </Button>
+          {/* Action Buttons */}
+          {kosStatus === 'pending' ? (
+            <View className="mb-5 mt-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
+              <Text className="text-center text-sm text-yellow-600 dark:text-yellow-400">
+                ⏳ Kos sedang dalam proses peninjauan. Anda tidak dapat mengedit sampai admin
+                selesai meninjau.
+              </Text>
+            </View>
+          ) : (
+            <View className="mb-5 mt-4 flex-row gap-3">
+              <Button
+                onPress={handleSave}
+                disabled={saving || submitting}
+                variant="outline"
+                size="lg"
+                className="flex-1">
+                {saving ? (
+                  <ActivityIndicator size="small" color="#14b8a6" />
+                ) : (
+                  <>
+                    <Save size={20} color={iconColor} />
+                    <Text className="ml-2 font-semibold">Simpan</Text>
+                  </>
+                )}
+              </Button>
+              <Button
+                onPress={handleResubmit}
+                disabled={submitting || saving}
+                size="lg"
+                className="flex-1">
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Send size={20} color={colorScheme === 'dark' ? 'hsl(0 0% 3.9%)' : '#fff'} />
+                    <Text className="ml-2 font-semibold text-primary-foreground">Ajukan</Text>
+                  </>
+                )}
+              </Button>
+            </View>
+          )}
         </View>
       </ScrollView>
 

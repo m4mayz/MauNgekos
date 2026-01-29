@@ -27,15 +27,27 @@ import {
   ROOM_FACILITY_KEYS,
   COMMON_FACILITY_KEYS,
 } from '@/types';
-import { createKos, createGeoPoint } from '@/services/kosService';
+import { submitKosFromDraft, createGeoPoint, getKosByOwner } from '@/services/kosService';
+import { saveDraft, getDraft, KosDraft } from '@/services/draftService';
 import { uploadImage } from '@/lib/supabase';
 import { MaterialIcons } from '@expo/vector-icons';
-import { X, MapPin, Home, Plus, ChevronLeft, Check, Compass } from 'lucide-react-native';
+import {
+  X,
+  MapPin,
+  Home,
+  Plus,
+  ChevronLeft,
+  Check,
+  Compass,
+  Save,
+  Send,
+} from 'lucide-react-native';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import * as Location from 'expo-location';
+import IcBaselineWhatsappIcon from '@/components/icons/ic/baseline-whatsapp';
 
 type KosTypeOption = {
   value: KosType;
@@ -152,6 +164,28 @@ export default function AddKosScreen() {
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
   const mapRef = useRef<MapView>(null);
 
+  // Load draft on mount
+  useEffect(() => {
+    (async () => {
+      const draft = await getDraft(draftId);
+      if (draft) {
+        setName(draft.name);
+        setOwnerPhone(draft.ownerPhone);
+        setAddress(draft.address);
+        setDescription(draft.description || '');
+        setType(draft.type);
+        setPriceMin(draft.priceMin.toString());
+        setPriceMax(draft.priceMax.toString());
+        setTotalRooms(draft.totalRooms.toString());
+        setAvailableRooms(draft.availableRooms.toString());
+        setSelectedFacilities(draft.facilities);
+        setImages(draft.images);
+        setLatitude(draft.latitude.toString());
+        setLongitude(draft.longitude.toString());
+      }
+    })();
+  }, []);
+
   // Get user location
   useEffect(() => {
     (async () => {
@@ -181,11 +215,15 @@ export default function AddKosScreen() {
   const { user } = useAuth();
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // For Ajukan (submit)
+  const [saving, setSaving] = useState(false); // For Simpan (save draft)
   const [isLocating, setIsLocating] = useState(false);
   const [images, setImages] = useState<string[]>([]);
 
-  const iconColor = colorScheme === 'dark' ? 'white' : 'black';
+  // Generate temp ID for draft
+  const [draftId] = useState(`draft_${Date.now()}`);
+
+  const iconColor = colorScheme === 'dark' ? '#14b8a6' : 'black';
   const mutedColor = colorScheme === 'dark' ? '#9CA3AF' : '#6B7280';
 
   // Tab state for facilities
@@ -344,9 +382,60 @@ export default function AddKosScreen() {
     return true;
   };
 
+  const handleSave = async () => {
+    if (!validateForm()) return;
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      const draft: KosDraft = {
+        kosId: draftId,
+        ownerId: user.id,
+        ownerName: user.name,
+        ownerPhone: ownerPhone.trim(),
+        name: name.trim(),
+        address: address.trim(),
+        description: description.trim() || undefined,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        type,
+        priceMin: parseInt(priceMin),
+        priceMax: parseInt(priceMax),
+        totalRooms: parseInt(totalRooms),
+        availableRooms: parseInt(availableRooms),
+        facilities: selectedFacilities,
+        images,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      await saveDraft(draftId, draft);
+      Alert.alert(
+        'Berhasil',
+        'Perubahan disimpan secara lokal. Klik "Ajukan" untuk mengirim ke admin.'
+      );
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      Alert.alert('Error', 'Gagal menyimpan perubahan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
     if (!user) return;
+
+    // Check quota
+    const existingKos = await getKosByOwner(user.id);
+    const kosQuota = user.kos_quota || 1;
+    if (existingKos.length >= kosQuota) {
+      Alert.alert(
+        'Kuota Tercapai',
+        `Anda sudah mencapai kuota maksimal (${kosQuota} kos). Hapus kos lama atau upgrade ke Premium.`
+      );
+      return;
+    }
 
     setLoading(true);
     try {
@@ -360,8 +449,8 @@ export default function AddKosScreen() {
         }
       }
 
-      // Create kos
-      await createKos({
+      // Submit kos
+      await submitKosFromDraft({
         ownerId: user.id,
         ownerName: user.name,
         ownerPhone: ownerPhone.trim(),
@@ -378,12 +467,12 @@ export default function AddKosScreen() {
         images: uploadedImages,
       });
 
-      Alert.alert('Berhasil', 'Kos berhasil ditambahkan dan menunggu persetujuan admin', [
+      Alert.alert('Berhasil', 'Kos berhasil diajukan dan menunggu persetujuan admin', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error) {
       console.error('Error creating kos:', error);
-      Alert.alert('Error', 'Gagal menambahkan kos');
+      Alert.alert('Error', 'Gagal mengajukan kos');
     } finally {
       setLoading(false);
     }
@@ -393,11 +482,14 @@ export default function AddKosScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-background">
-      <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
+      <View style={{ height: insets.top }} />
+
+      <ScrollView
+        className="flex-1"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         {/* Custom Header */}
-        <View
-          className="flex-row items-center gap-2 px-2 pb-4"
-          style={{ paddingTop: insets.top + 10 }}>
+        <View className="flex-row items-center gap-2 px-2 pb-4">
           <Button variant="ghost" size="icon" onPress={() => router.back()}>
             <ChevronLeft size={24} color={iconColor} />
           </Button>
@@ -457,7 +549,7 @@ export default function AddKosScreen() {
               value={ownerPhone}
               onChangeText={setOwnerPhone}
               keyboardType="phone-pad"
-              leftIcon={<MaterialIcons name="whatsapp" size={20} color={mutedColor} />}
+              leftIcon={<IcBaselineWhatsappIcon height={20} width={20} color={mutedColor} />}
               aria-labelledby="ownerPhone"
             />
             <Text className="text-xs text-muted-foreground">
@@ -612,7 +704,9 @@ export default function AddKosScreen() {
                           <Check size={12} color="#fff" strokeWidth={3} />
                         )}
                       </View>
-                      <Text className={selectedFacilities.includes(facility) ? 'text-primary' : ''}>
+                      <Text
+                        numberOfLines={1}
+                        className={selectedFacilities.includes(facility) ? 'text-primary' : ''}>
                         {ROOM_FACILITIES[facility].label}
                       </Text>
                     </Pressable>
@@ -665,14 +759,38 @@ export default function AddKosScreen() {
             )}
           </View>
 
-          {/* Submit Button */}
-          <Button onPress={handleSubmit} disabled={loading} size="lg" className="mb-5 mt-4">
-            {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text className="font-semibold text-primary-foreground">Simpan Kos</Text>
-            )}
-          </Button>
+          {/* Action Buttons */}
+          <View className="mb-5 mt-4 flex-row gap-3">
+            <Button
+              onPress={handleSave}
+              disabled={saving || loading}
+              variant="outline"
+              size="lg"
+              className="flex-1">
+              {saving ? (
+                <ActivityIndicator size="small" color="#14b8a6" />
+              ) : (
+                <>
+                  <Save size={20} color={iconColor} />
+                  <Text className="ml-2 font-semibold">Simpan</Text>
+                </>
+              )}
+            </Button>
+            <Button
+              onPress={handleSubmit}
+              disabled={loading || saving}
+              size="lg"
+              className="flex-1">
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Send size={20} color={colorScheme === 'dark' ? 'hsl(0 0% 3.9%)' : '#fff'} />
+                  <Text className="ml-2 font-semibold text-primary-foreground">Ajukan</Text>
+                </>
+              )}
+            </Button>
+          </View>
         </View>
       </ScrollView>
 

@@ -119,7 +119,7 @@ export function KosDetailSheet({ kos, onClose, visible }: KosDetailSheetProps) {
   const scrollViewRef = useRef<ScrollView>(null);
   const colorScheme = useColorScheme();
 
-  const iconColor = colorScheme === 'dark' ? 'white' : 'black';
+  const iconColor = colorScheme === 'dark' ? '#14b8a6' : 'black';
   const mutedColor = colorScheme === 'dark' ? '#9CA3AF' : '#6B7280';
   const isGuest = !user;
 

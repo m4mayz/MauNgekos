@@ -121,6 +121,14 @@ npm run add-icon <name>  # Add single icon interactively
 - ❌ Hard-coded colors - use theme variables or NativeWind classes
 - ❌ Editing [lib/facilityIcons.ts](lib/facilityIcons.ts) manually (auto-generated)
 - ❌ Complex Firestore compound queries (use client-side filtering in `getFilteredKos`)
+- ❌ Excessive comments in code - only add comments for complex logic or non-obvious behavior
+
+## Code Style
+
+- **Comments**: Keep minimal. Code should be self-documenting with clear naming
+- **Only comment when**: Complex algorithms, business logic, or non-obvious workarounds
+- **Avoid**: Redundant comments that restate what code does (e.g., `// Set loading to true` before `setLoading(true)`)
+- **Prefer**: JSDoc for function documentation, inline comments for tricky logic only
 
 ## Key Files Reference
 

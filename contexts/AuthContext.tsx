@@ -35,7 +35,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Fetch user data from Firestore
         const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
         if (userDoc.exists()) {
-          setUser({ id: fbUser.uid, ...userDoc.data() } as User);
+          const userData = { id: fbUser.uid, ...userDoc.data() } as User;
+          setUser(userData);
+
+          // Log user data for debugging
+          console.log('[AuthContext] User loaded:', {
+            id: userData.id,
+            name: userData.name,
+            role: userData.role,
+            kos_quota: userData.kos_quota,
+            savedKos: userData.savedKos?.length || 0,
+          });
+        } else {
+          console.warn('[AuthContext] User document not found for:', fbUser.uid);
         }
       } else {
         setUser(null);
@@ -54,13 +66,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, name: string, role: UserRole) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
-    // Create user document in Firestore
-    await setDoc(doc(db, 'users', userCredential.user.uid), {
+    // Prepare user data based on role
+    const userData: any = {
       email,
       name,
       role,
       createdAt: serverTimestamp(),
-    });
+    };
+
+    // Add role-specific fields
+    if (role === 'pencari') {
+      userData.savedKos = []; // Initialize empty saved kos array for pencari
+    } else if (role === 'penyewa') {
+      userData.kos_quota = 1; // Default quota: 1 kos for free tier
+    }
+    // Admin doesn't need special fields for now
+
+    // Create user document in Firestore
+    await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+
+    console.log('[AuthContext] User created with data:', userData);
   };
 
   const signOut = async () => {

@@ -6,7 +6,7 @@ import { PortalHost } from '@rn-primitives/portal';
 import { Slot, useRouter, useSegments, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import {
@@ -34,23 +34,36 @@ function RootLayoutNav() {
   const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const [dbReady, setDbReady] = useState(false);
 
   // Initialize SQLite database on app launch
   useEffect(() => {
-    initDatabase()
-      .then(() => {
-        console.log('SQLite database initialized');
+    async function initApp() {
+      try {
+        console.log('🚀 App initializing...');
+        await initDatabase();
+        console.log('✅ SQLite database initialized');
+
         // Start network listener for auto-sync
         syncService.startNetworkListener();
-        // Initial sync from Firestore
-        return syncService.syncAllKosFromFirestore();
-      })
-      .then(() => {
-        console.log('Initial sync completed');
-      })
-      .catch((error) => {
-        console.error('Error initializing database or sync:', error);
-      });
+        console.log('✅ Network listener started');
+
+        // Mark database as ready
+        setDbReady(true);
+        console.log('✅ Database ready, UI will render');
+
+        // Initial sync from Firestore - wait for it to complete before UI uses data
+        console.log('🔄 Starting initial sync from Firestore...');
+        await syncService.syncAllKosFromFirestore(true); // Force sync and WAIT
+        console.log('✅ Initial sync completed, data ready');
+      } catch (error) {
+        console.error('❌ Error initializing database:', error);
+        // Still mark as ready to allow fallback to Firestore
+        setDbReady(true);
+      }
+    }
+
+    initApp();
 
     // Cleanup on unmount
     return () => {
@@ -82,7 +95,8 @@ function RootLayoutNav() {
     // Guest users can stay in (pencari) group without redirect
   }, [user, loading, segments]);
 
-  if (loading) {
+  // Show loading while auth or database initializing
+  if (loading || !dbReady) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" color="hsl(172, 70%, 35%)" />

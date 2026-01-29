@@ -6,7 +6,7 @@
 ![GitHub license](https://img.shields.io/github/license/m4mayz/MauNgekos)
 ![GitHub last commit](https://img.shields.io/github/last-commit/m4mayz/MauNgekos)
 
-React Native marketplace untuk kos-kosan di Indonesia. Dibangun dengan Expo Router, offline-first architecture, dan auto-generated icon system.
+React Native marketplace untuk kos-kosan di Indonesia. Dibangun dengan Expo Router, online-first architecture, dan auto-generated icon system.
 
 <!-- TODO: Add screenshots -->
 
@@ -21,7 +21,7 @@ React Native marketplace untuk kos-kosan di Indonesia. Dibangun dengan Expo Rout
 
 MauNgekos adalah marketplace kos dengan tiga role: **pencari** (yang nyari kos), **penyewa** (yang punya kos), dan **admin** (yang approve listing).
 
-Yang menarik dari project ini: **data di-cache ke SQLite dulu, baru sync ke Firestore** — jadi app tetap cepat meski koneksi jelek. Saya bikin ini untuk belajar Expo Router v6 (file-based routing), offline-first architecture, dan eksperimen dengan auto-generate icon system.
+Yang menarik dari project ini: **online-first architecture dengan SQLite cache fallback** — app fetch fresh data from Firestore ketika online, dan fallback ke SQLite cache ketika offline. Saya bikin ini untuk belajar Expo Router v6 (file-based routing), network-aware caching strategy, dan eksperimen dengan auto-generate icon system.
 
 Challenge terbesar: Managing 40+ icons secara manual itu nightmare. Jadi saya bikin script yang generate icon components dari facility type definitions di TypeScript — edit types, run script, icons auto-update di seluruh app.
 
@@ -34,10 +34,11 @@ Challenge terbesar: Managing 40+ icons secara manual itu nightmare. Jadi saya bi
 ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
 
-- **Expo SDK**: 54.0.29 - New architecture enabled, pengen coba performa boost
-- **React Native**: 0.81.5 - Latest stable dengan Hermes
+- **Expo SDK**: 54.0.32 - New architecture enabled untuk performa boost
+- **React Native**: 0.81.5 - Latest stable dengan Hermes engine
 - **TypeScript**: 5.9.2 - Strict mode, type safety di semua layer
-- **Expo Router**: 6.0.19 - File-based routing kayak Next.js, lebih intuitive dari stack navigator
+- **Expo Router**: 6.0.22 - File-based routing kayak Next.js, lebih intuitive dari stack navigator
+- **React**: 19.1.0 - Latest version dengan React Server Components support
 
 ### Backend & Storage
 
@@ -45,21 +46,22 @@ Challenge terbesar: Managing 40+ icons secara manual itu nightmare. Jadi saya bi
 ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
 ![SQLite](https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white)
 
-- **Firebase Firestore**: Main database - real-time, free tier cukup untuk MVP
-- **Firebase Auth**: Email/password authentication dengan AsyncStorage persistence
-- **Supabase Storage**: Image hosting - gratis 1GB, Firebase Storage berbayar
-- **SQLite**: Offline cache - read from local first, sync di background
+- **Firebase**: 12.8.0 - Firestore untuk main database, Auth untuk email/password authentication
+- **Supabase**: 2.91.0 - Storage untuk image hosting (gratis 1GB, lebih murah dari Firebase Storage)
+- **SQLite**: 16.0.10 (expo-sqlite) - Local cache untuk online-first strategy
+- **NetInfo**: 11.4.1 (@react-native-community/netinfo) - Network detection untuk auto-sync
 
 ### UI & Styling
 
 ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
 
-- **NativeWind**: 4.2.1 - Tailwind classes di React Native, game changer untuk rapid prototyping
-- **@rn-primitives**: Accessible UI components (alert-dialog, checkbox, select, etc)
-- **Monicon**: Auto-generated icons dari 5 collections (lucide, material-symbols, mdi, cil, streamline)
-- **react-native-maps**: Google Maps integration dengan custom markers
-- **Reanimated**: Custom animated tab bar dengan smooth transitions
-- **Manrope**: Google Font dengan weights 400-800
+- **NativeWind**: 4.2.1 - Tailwind classes di React Native untuk rapid prototyping
+- **@rn-primitives**: 1.2.0+ - Accessible UI components (alert-dialog, checkbox, select, tabs, dll)
+- **Monicon**: 2.0.7 - Auto-generated icons dari 5 collections (lucide, material-symbols, mdi, cil, streamline)
+- **Lucide React Native**: 0.545.0 - Icon library untuk UI elements
+- **react-native-maps**: 1.20.1 - Google Maps integration dengan custom markers
+- **Reanimated**: 4.1.1 + Gesture Handler 2.28.0 + Worklets 0.5.1 - Smooth animations dan gestures
+- **Manrope**: Font dari @expo-google-fonts dengan weights 400-800
 
 ### Development
 
@@ -146,53 +148,71 @@ Enable Maps SDK for Android dan Maps SDK for iOS.
 
 Buat 2 collections di Firebase Console:
 
-**users**
+#### users
 
-```
-id: string
-email: string
-name: string
-role: 'pencari' | 'penyewa' | 'admin'
-savedKos: string[]
-createdAt: timestamp
+```javascript
+{
+  id: string,
+  email: string,
+  name: string,
+  role: 'pencari' | 'penyewa' | 'admin',
+  savedKos: string[],        // Only for 'pencari' - array of saved kos IDs
+  kos_quota: number,          // Only for 'penyewa' - number of kos allowed (default: 1)
+  createdAt: timestamp
+}
 ```
 
-**kos**
+#### kos
 
-```
-id: string
-ownerId: string
-name: string
-address: string
-location: GeoPoint
-type: 'putra' | 'putri' | 'campur'
-priceMin: number
-priceMax: number
-facilities: string[]
-images: string[]
-status: 'pending' | 'approved' | 'rejected'
-createdAt: timestamp
+```javascript
+{
+  id: string,
+  ownerId: string,
+  ownerName: string,              // Optional - owner display name
+  ownerPhone: string,             // Optional - WhatsApp number (format: 628xxx tanpa +)
+  name: string,
+  address: string,
+  location: GeoPoint,             // Firebase GeoPoint with latitude/longitude
+  type: 'putra' | 'putri' | 'campur',
+  priceMin: number,
+  priceMax: number,
+  facilities: string[],           // Array dari ROOM_FACILITIES + COMMON_FACILITIES keys
+  totalRooms: number,
+  availableRooms: number,
+  images: string[],               // Array of Supabase Storage URLs
+  description: string,            // Optional
+  status: 'pending' | 'approved' | 'rejected',
+  previousStatus: 'pending' | 'approved' | 'rejected',  // Optional - untuk tracking re-submission
+  createdAt: timestamp,
+  updatedAt: timestamp
+}
 ```
 
 ## How It Works
 
-### Offline-First Architecture
+### Online-First Architecture with SQLite Cache
 
-Data flow: **SQLite cache → Firestore sync → UI**
+Data flow: **Firestore (when online) → SQLite cache (fallback) → UI**
 
 ```typescript
-// services/sqliteService.ts - Read cache first
-const cachedKos = await getAllKosFromSQLite();
+// services/kosService.ts - Online-first strategy
+const isOnline = await syncService.isOnline();
 
-// services/syncService.ts - Background sync
-NetInfo.addEventListener(async (state) => {
-  if (state.isConnected) {
-    await syncKosData(); // Sync di background
-  }
-});
+if (isOnline) {
+  // 1. When ONLINE: Fetch fresh data from Firebase first
+  const freshData = await getApprovedKosFromFirestore();
+
+  // 2. Update SQLite cache in background (don't await)
+  sqliteService.insertManyKos(freshData).catch(console.error);
+
+  return freshData; // Return fresh data immediately
+} else {
+  // 3. When OFFLINE: Read from SQLite cache
+  return await sqliteService.getAllApprovedKos();
+}
 ```
 
-Why? Network latency di Indonesia bisa unpredictable. Dengan read-from-cache-first, app feels instant. Sync happens di background pakai NetInfo listener.
+**Why Online-First?** Users expect fresh, real-time data ketika online. SQLite cache hanya untuk fallback when offline atau Firebase error. Network listener (`@react-native-community/netinfo`) triggers auto-sync ketika device kembali online.
 
 ### Auto-Generated Icon System
 
@@ -212,7 +232,7 @@ export const ROOM_FACILITIES = {
 };
 ```
 
-2. Run `npm run icons`:
+1. Run `npm run icons`:
 
 ```bash
 npm run icons
@@ -222,7 +242,7 @@ npm run icons
 # → Creates components/icons/
 ```
 
-3. Icons auto-available di seluruh app via static imports (Metro bundler requirement).
+1. Icons auto-available di seluruh app via static imports (Metro bundler requirement).
 
 Constraint: Metro bundler tidak support dynamic imports dengan template literals. Jadi semua icon imports harus static, hence the auto-generation.
 
@@ -241,42 +261,83 @@ Guest access allowed di `(pencari)` routes untuk browsing tanpa login.
 ## Project Structure
 
 ```
-app/                      # Expo Router file-based routes
-├── (auth)/              # Login & register
-├── (pencari)/           # Seeker role (tabs: home, favorites, profile)
-├── (penyewa)/           # Landlord role (dashboard, kos CRUD)
-├── (admin)/             # Admin approval flows
-└── _layout.tsx          # Auth routing logic
+app/                               # Expo Router file-based routes
+├── (auth)/                        # Authentication group (login, register)
+│   ├── login.tsx
+│   ├── register.tsx
+│   └── _layout.tsx
+├── (pencari)/                     # Seeker role (guest access allowed)
+│   ├── (tabs)/                    # Tab navigation
+│   │   ├── home.tsx               # Map view dengan filters
+│   │   ├── favorites.tsx          # Saved kos (requires auth)
+│   │   ├── profile.tsx
+│   │   └── _layout.tsx            # Custom animated tab bar
+│   └── _layout.tsx
+├── (penyewa)/                     # Landlord role (protected)
+│   ├── dashboard.tsx              # Kos management list
+│   ├── kos/
+│   │   ├── add.tsx                # Create new kos
+│   │   └── edit/[id].tsx          # Edit existing kos
+│   ├── profile.tsx
+│   └── _layout.tsx
+├── (admin)/                       # Admin role (protected)
+│   ├── approvals.tsx              # Approve/reject kos queue
+│   ├── kos/[id].tsx               # Kos detail for approval
+│   ├── profile.tsx
+│   └── _layout.tsx
+├── _layout.tsx                    # Root: Auth routing + SQLite init + Sync listener
+├── index.tsx                      # Entry redirect
+├── +html.tsx                      # HTML head config
+└── +not-found.tsx                 # 404 handler
 
 components/
-├── ui/                  # Reusable primitives
-├── icons/               # Auto-generated (DO NOT EDIT)
-└── KosDetailSheet.tsx   # Bottom sheet component
+├── ui/                            # 20 Reusable primitives (@rn-primitives)
+│   ├── button.tsx
+│   ├── input.tsx
+│   ├── dialog.tsx
+│   ├── checkbox.tsx
+│   ├── tabs.tsx
+│   └── ...                        # 15 more components
+├── icons/                         # Auto-generated (DO NOT EDIT)
+│   ├── material-symbols/
+│   ├── lucide/
+│   ├── mdi/
+│   ├── cil/
+│   └── streamline/
+├── KosDetailSheet.tsx             # Bottom sheet untuk kos details
+└── PageHeader.tsx                 # Reusable header component
+
+contexts/
+└── AuthContext.tsx                # Firebase auth provider dengan user state
 
 services/
-├── kosService.ts        # Firestore CRUD operations
-├── sqliteService.ts     # Local cache layer
-└── syncService.ts       # Offline-first sync
+├── kosService.ts                  # Firestore CRUD + online-first logic
+├── sqliteService.ts               # Local cache layer (CRUD + sync queue)
+├── syncService.ts                 # Background sync dengan NetInfo listener
+└── draftService.ts                # Draft kos persistence (AsyncStorage)
 
 lib/
-├── firebase.ts          # Firebase config
-├── supabase.ts          # Supabase client + image upload
-├── facilityIcons.ts     # Auto-generated icon map (DO NOT EDIT)
-└── utils.ts             # Helpers
+├── firebase.ts                    # Firebase config (Firestore + Auth)
+├── supabase.ts                    # Supabase client + image upload helpers
+├── database.ts                    # SQLite initialization
+├── theme.ts                       # NativeWind theme config
+├── utils.ts                       # Helper functions (cn, serializers, etc)
+└── facilityIcons.ts               # Auto-generated icon map (DO NOT EDIT)
 
 types/
-└── index.ts             # TypeScript types + facility definitions
+└── index.ts                       # TypeScript types + facility definitions with icons
 
 scripts/
-├── generate-icons.js    # Auto-generate icon system
-└── add-icon.js          # Add single icon interactively
+├── generate-icons.js              # Auto-generate icon system dari types/index.ts
+├── add-icon.js                    # Add single icon interactively
+└── seed-dummy-kos.ts              # Seed dummy data (development)
 ```
 
 ## What I Learned
 
-### Offline-First Strategy is Non-Trivial
+### Online-First Strategy Balances Freshness and Reliability
 
-Initial assumption: "Just cache Firestore queries". Reality: Need proper sync strategy, conflict resolution, stale data handling. Ended up with SQLite as single source of truth for reads, Firestore for writes, NetInfo listener for sync timing.
+Initial assumption: "Just cache Firestore queries". Reality: Need proper network detection, smart fallback strategy, and background cache updates. Ended up with online-first approach: when online, fetch fresh data from Firestore and update SQLite cache in background; when offline, read from local SQLite cache. NetInfo listener triggers auto-sync when connection restored.
 
 ### Metro Bundler Has Hard Constraints
 
