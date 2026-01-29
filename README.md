@@ -8,14 +8,91 @@
 
 React Native marketplace untuk kos-kosan di Indonesia. Dibangun dengan Expo Router, online-first architecture, dan auto-generated icon system.
 
-<!-- TODO: Add screenshots -->
+## Screenshots
 
-![Home Screen](assets/screenshots/home.png)
-![Map View](assets/screenshots/map.png)
-![Kos Detail](assets/screenshots/detail.png)
+<div align="center">
 
-<!-- TODO: Add demo GIF -->
-<!-- ![Demo](assets/demo.gif) -->
+<table>
+  <tr>
+    <td align="center">
+      <img src="screenshots/Screenshot_2026-01-30-01-17-23-017_com.maungekos.app.jpg" width="250" alt="Map View" />
+      <br />
+      <sub><b>Explore Kos dengan Google Maps</b></sub>
+      <br />
+      <sub>Map view dengan custom markers dan filter chips</sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/Screenshot_2026-01-30-01-18-18-452_com.maungekos.app.jpg" width="250" alt="Kos Detail Light" />
+      <br />
+      <sub><b>Detail Kos Lengkap</b></sub>
+      <br />
+      <sub>Bottom sheet dengan info lengkap</sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/Screenshot_2026-01-30-01-18-52-856_com.maungekos.app.jpg" width="250" alt="Kos Detail Dark" />
+      <br />
+      <sub><b>Dark Mode Support</b></sub>
+      <br />
+      <sub>Auto-generated facility icons</sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/Screenshot_2026-01-30-01-26-58-963_com.maungekos.app.jpg" width="250" alt="Admin Approval" />
+      <br />
+      <sub><b>Admin Approval Workflow</b></sub>
+      <br />
+      <sub>Approve/reject kos dengan preview</sub>
+    </td>
+  </tr>
+</table>
+
+</div>
+
+## More Features
+
+<div align="center">
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="screenshots/Screenshot_2026-01-30-01-28-19-074_com.maungekos.app.jpg" width="250" alt="Admin Dashboard" />
+      <br />
+      <sub><b>Admin Dashboard</b></sub>
+      <br />
+      <sub>Manage all kos listings with stats</sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/Screenshot_2026-01-30-01-29-07-444_com.maungekos.app.jpg" width="250" alt="Edit Kos Form" />
+      <br />
+      <sub><b>Edit Kos Form</b></sub>
+      <br />
+      <sub>Full CRUD interface for landlords</sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/Screenshot_2026-01-30-01-20-30-922_com.maungekos.app.jpg" width="250" alt="Complete Facilities" />
+      <br />
+      <sub><b>Complete Facilities</b></sub>
+      <br />
+      <sub>All auto-generated facility icons</sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/Screenshot_2026-01-30-01-24-56-993_com.maungekos.app.jpg" width="250" alt="Approval Actions" />
+      <br />
+      <sub><b>Approval Actions</b></sub>
+      <br />
+      <sub>Quick approve/reject controls</sub>
+    </td>
+  </tr>
+</table>
+
+</div>
+
+## Demo Video
+
+<div align="left">
+
+![Coming Soon](https://img.shields.io/badge/Demo%20Video-COMING%20SOON-yellow?style=for-the-badge&logo=youtube&logoColor=white)
+
+</div>
 
 ## What This Does
 
