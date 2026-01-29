@@ -16,6 +16,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     imageWidth: 150,
   },
   assetBundlePatterns: ['**/*'],
+  updates: {
+    url: 'https://u.expo.dev/9cd196b3-2d74-4acc-bc72-d03b76d80b83',
+  },
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.maungekos.app',
