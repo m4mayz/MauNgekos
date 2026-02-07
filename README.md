@@ -88,13 +88,9 @@ React Native marketplace untuk kos-kosan di Indonesia. Dibangun dengan Expo Rout
 
 </div>
 
-## Demo Video
+## Demo Video (Youtube)
 
-<div align="left">
-
-![Coming Soon](https://img.shields.io/badge/Demo%20Video-COMING%20SOON-yellow?style=for-the-badge&logo=youtube&logoColor=white)
-
-</div>
+<https://www.youtube.com/watch?v=j8GxHMHob_c>
 
 ## What This Does
 
